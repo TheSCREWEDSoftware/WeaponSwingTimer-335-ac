@@ -85,9 +85,12 @@ addon_data.player.OnUpdate = function(elapsed)
 			
         -- If the weapon speed changed for either hand then a buff occured and we need to modify the timers
         if addon_data.player.main_speed_changed or addon_data.player.off_speed_changed then
-            local main_multiplier = addon_data.player.main_weapon_speed / addon_data.player.prev_main_weapon_speed
-            addon_data.player.main_swing_timer = addon_data.player.main_swing_timer * main_multiplier
-            if addon_data.player.has_offhand then
+            -- Only rescale a swing that is actually running (Treeston, LeftHandedGlove PR #26)
+            if addon_data.player.main_swing_timer > 0 then
+                local main_multiplier = addon_data.player.main_weapon_speed / addon_data.player.prev_main_weapon_speed
+                addon_data.player.main_swing_timer = addon_data.player.main_swing_timer * main_multiplier
+            end
+            if addon_data.player.has_offhand and addon_data.player.off_swing_timer > 0 then
 				if addon_data.player.prev_off_weapon_speed == 0 then
 					addon_data.player.prev_off_weapon_speed = 2
 				end
@@ -119,6 +122,14 @@ addon_data.player.OnInventoryChange = function()
         addon_data.player.ResetOffSwingTimer()
     end
     addon_data.player.off_weapon_id = new_off_guid
+end
+
+-- When auto-attack starts, the off-hand's first swing comes half a swing later
+-- (Treeston, LeftHandedGlove PR #27)
+addon_data.player.OnPlayerEnterCombat = function()
+    if addon_data.player.has_offhand then
+        addon_data.player.off_swing_timer = max(addon_data.player.off_swing_timer, addon_data.player.off_weapon_speed * 0.5)
+    end
 end
 
 addon_data.player.OnCombatLogUnfiltered = function(combat_info)

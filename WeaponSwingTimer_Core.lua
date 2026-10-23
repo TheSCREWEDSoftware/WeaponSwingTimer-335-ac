@@ -540,7 +540,8 @@ swing_reset_spells['WARRIOR'] = {
     -- --[[ Shoot Bow ]]
     -- --[[ Shoot Crossbow ]]
     -- --[[ Shoot Gun ]]
-    --[[ Slam ]]                    1464, 8820, 11604, 11605, 25241, 25242, 47474, 47475
+    -- WotLK: Slam no longer resets the swing timer (as in watchyoursixx's wotlk-master)
+    -- --[[ Slam ]]                    1464, 8820, 11604, 11605, 25241, 25242, 47474, 47475
     -- --[[ Sunder Armor ]]
     -- --[[ Sweeping Strikes ]]
     -- --[[ Taunt ]]
@@ -871,6 +872,7 @@ local function OnAddonLoaded(self)
     addon_data.core.core_frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     addon_data.core.core_frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     addon_data.core.core_frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    addon_data.core.core_frame:RegisterEvent("PLAYER_ENTER_COMBAT")
     addon_data.core.core_frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     addon_data.core.core_frame:RegisterEvent("UNIT_INVENTORY_CHANGED")
     addon_data.core.core_frame:RegisterEvent("START_AUTOREPEAT_SPELL")
@@ -925,6 +927,8 @@ local function CoreFrame_OnEvent(self, event, ...)
         addon_data.core.in_combat = true
     elseif event == "PLAYER_TARGET_CHANGED" then
         addon_data.target.OnPlayerTargetChanged()
+    elseif event == "PLAYER_ENTER_COMBAT" then
+        addon_data.player.OnPlayerEnterCombat()
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local combat_info = addon_data.compat.BuildCombatInfo(...)
         addon_data.player.OnCombatLogUnfiltered(combat_info)

@@ -101,9 +101,12 @@ addon_data.target.OnUpdate = function(elapsed)
         end
         -- If the weapon speed changed for either hand then a buff occured and we need to modify the timers
         if addon_data.target.main_speed_changed or addon_data.target.off_speed_changed then
-            local main_multiplier = addon_data.target.main_weapon_speed / addon_data.target.prev_main_weapon_speed
-            addon_data.target.main_swing_timer = addon_data.target.main_swing_timer * main_multiplier
-            if addon_data.target.has_offhand then
+            -- Only rescale a swing that is actually running (Treeston, LeftHandedGlove PR #26)
+            if addon_data.target.main_swing_timer > 0 then
+                local main_multiplier = addon_data.target.main_weapon_speed / addon_data.target.prev_main_weapon_speed
+                addon_data.target.main_swing_timer = addon_data.target.main_swing_timer * main_multiplier
+            end
+            if addon_data.target.has_offhand and addon_data.target.off_swing_timer > 0 then
                 local off_multiplier = (addon_data.target.off_weapon_speed / addon_data.target.prev_off_weapon_speed)
                 addon_data.target.off_swing_timer = addon_data.target.off_swing_timer * off_multiplier
             end

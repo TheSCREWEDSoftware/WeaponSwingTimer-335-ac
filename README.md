@@ -21,15 +21,14 @@ If you use a wand, it also tracks when your shot will go off.
 
 ### Melee Bars
 The melee bars track the player's and target's main-hand and off-hand swings.
-They reset on abilities that reset a swing timer (Heroic Strike, Cleave, Slam, Maul, Raptor Strike, Rune Strike) and take parry haste into account.
+They reset on abilities that reset a swing timer (Heroic Strike, Cleave, Maul, Raptor Strike, Rune Strike) and take parry haste into account.
 Both frames can be moved with the usual click-and-drag.
 Open the options with `/wst`, `/WeaponSwingTimer` or `/weaponswingtimer`.
 
 ### Hunter/Wand Bars
-The shot bars track the player's Auto Shot and Shoot timing, and the cast time of Aimed Shot, Multi-Shot and Steady Shot.
-The shot bar turns white when the projectile leaves the player.
-While the bar is white, the player can move and cast freely without clipping their next Auto Shot or Shoot.
-When the white bar is depleted, the player should stand still while their Auto Shot or Shoot is 'casting'.
+The shot bars track the player's Auto Shot and Shoot timing, and the cast time of Multi-Shot and Steady Shot.
+The white shot bar shows the time until your next Auto Shot or Shoot; it turns gold during the global cooldown of Steady Shot or Multi-Shot.
+In WotLK Auto Shot has no cast time, so there is no red 'casting' section to stand still for.
 
 ## Installation
 1. Copy the `WeaponSwingTimer-335-ac` folder into `World of Warcraft\Interface\AddOns\`.
@@ -45,6 +44,15 @@ When the white bar is depleted, the player should stand still while their Auto S
 - **Ranged bars only when useful**: the shot bar shows for Hunters, and for Mages, Priests and Warlocks with a wand; the spell cast bar shows for Hunters. Both are hidden when no ranged weapon is equipped.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
+
+### WotLK mechanics and community fixes
+Taken from the original author's own WotLK work and from open pull requests on the original repositories:
+- **Slam no longer resets the swing timer** (as in WotLK) – from watchyoursixx's `wotlk-master` branch.
+- **Auto Shot has no cast time** (as in WotLK): the red "cast" section, the Multi-Shot clip marker and their colour options are gone – from watchyoursixx's `wotlk-master` branch.
+- **Aimed Shot is instant** and no longer resets the Auto Shot timer – from watchyoursixx's `wotlk-master` branch.
+- **Off-hand starts half a swing late** when auto-attack begins – by Treeston, [LeftHandedGlove PR #27](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/27).
+- **Haste changes only rescale a running swing** – by Treeston, [LeftHandedGlove PR #26](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/26).
+- **No divide-by-zero on a zero ranged base speed** – by Matthew Carlis, [SixxFix PR #48](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/pull/48).
 
 ### Changes needed for 3.3.5a
 Most of these live in `WeaponSwingTimer_Compat.lua`, so the rest of the code stays close to the original.
