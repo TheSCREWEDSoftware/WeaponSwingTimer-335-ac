@@ -64,6 +64,15 @@ addon_data.config.InitializeVisuals = function()
     panel.config_hunter_panel.default = addon_data.config.OnDefault
     addon_data.compat.RegisterOptionsPanel(panel.config_hunter_panel)
 
+    -- Add the extras panel (3.3.5a backport: opt-in features from the original issue trackers)
+    panel.config_extras_panel = CreateFrame("Frame", nil, panel)
+    panel.config_extras_panel:SetSize(1, 1)
+    addon_data.extras.CreateConfigPanel(panel.config_extras_panel)
+    panel.config_extras_panel.name = L["Extras"] or "Extras"
+    panel.config_extras_panel.parent = panel.name
+    panel.config_extras_panel.default = addon_data.config.OnDefault
+    addon_data.compat.RegisterOptionsPanel(panel.config_extras_panel)
+
     -- Add the profiles panel
     panel.config_profiles_panel = CreateFrame("Frame", nil, panel)
     panel.config_profiles_panel:SetSize(1, 1)

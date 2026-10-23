@@ -28,5 +28,6 @@ WeaponSwingTimer_Player.lua
 WeaponSwingTimer_Target.lua
 WeaponSwingTimer_Castbar.lua
 WeaponSwingTimer_Hunter.lua
+WeaponSwingTimer_Extras.lua
 WeaponSwingTimer_Config.lua
 WeaponSwingTimer_Core.lua

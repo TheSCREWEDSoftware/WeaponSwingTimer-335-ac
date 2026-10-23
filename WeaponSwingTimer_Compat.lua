@@ -52,9 +52,11 @@ compat.ApplyBackplane = function(backplane, show_border, alpha)
     end
     compat.SetColorTexture(backplane.wst_fill, 0, 0, 0, alpha or 0.5)
     if show_border then
+        local edge_file, edge_size = addon_data.media .. "Border", 12
+        if addon_data.GetBorderInfo then edge_file, edge_size = addon_data.GetBorderInfo() end
         backplane:SetBackdrop({
-            edgeFile = addon_data.media .. "Border",
-            tile = true, tileSize = 16, edgeSize = 12,
+            edgeFile = edge_file,
+            tile = true, tileSize = 16, edgeSize = edge_size,
             insets = { left = 8, right = 8, top = 8, bottom = 8 }})
         backplane:SetBackdropBorderColor(1, 1, 1, 1)
     else

@@ -574,6 +574,7 @@ local function LoadAllSettings()
     addon_data.target.LoadSettings()
     addon_data.hunter.LoadSettings()
 	addon_data.castbar.LoadSettings()
+    addon_data.extras.LoadSettings()
 end
 
 addon_data.core.RestoreAllDefaults = function()
@@ -602,6 +603,7 @@ addon_data.core.UpdateAllVisualsOnSettingsChange = function()
     if addon_data.config.config_frame then
         addon_data.config.UpdateConfigValues()
     end
+    addon_data.extras.UpdateConfigPanelValues()
     if not addon_data.core.IsClassEnabled() then
         HideAllBars()
     end
@@ -754,6 +756,7 @@ function addon_data.core.InitDB()
         character_target_settings  = addon_data.db.profile.target
         character_hunter_settings  = addon_data.db.profile.hunter
         character_castbar_settings = addon_data.db.profile.castbar
+        character_extras_settings  = addon_data.db.profile.extras
 
         if addon_data.core.visuals_initialized then
             addon_data.core.UpdateAllVisualsOnSettingsChange()
@@ -890,6 +893,7 @@ local function OnAddonLoaded(self)
         player  = addon_data.player.default_settings,
         target  = addon_data.target.default_settings,
         castbar = addon_data.castbar.default_settings,
+        extras  = addon_data.extras.default_settings,
         }
     }
     -- initialize profiles Ace3 database

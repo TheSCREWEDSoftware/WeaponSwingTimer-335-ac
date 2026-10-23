@@ -45,6 +45,24 @@ In WotLK Auto Shot has no cast time, so there is no red 'casting' section to sta
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
 
+### Extras page (optional, everything off by default)
+Interface Options → AddOns → WeaponSwingTimer (3.3.5a) → **Extras**. These answer open requests on the original issue trackers:
+- **Font, bar texture and border** choice for all bars ([SixxFix #14](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/14), [#5](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/5)). Built-in game media; LibSharedMedia media also appears if another addon provides it.
+- **Vertical bars** for the player and target bars ([SixxFix #18](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/18)).
+- **Colour while a next-swing ability is queued**: Heroic Strike, Cleave, Maul, Raptor Strike, Rune Strike ([SixxFix #11](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/11)).
+- **Colour when attack speed changes mid-swing**, e.g. Flurry ([LeftHandedGlove #18](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/issues/18)).
+- **Slam marker** for Warriors: casting Slam after it delays your next swing ([SixxFix #12](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/12)).
+- **Flash when a swing lands** ([SixxFix #19](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/19)).
+- **Dead-zone colouring** with leading/trailing seconds ([SixxFix #21](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/21)) – logic by maldon, [LeftHandedGlove PR #22](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/22).
+- **Reset swing after a spell cast** – experimental, check it matches your server ([LeftHandedGlove #19](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/issues/19)).
+
+For macros and other addons ([LeftHandedGlove #13](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/issues/13)):
+```
+/run print(WeaponSwingTimer_GetSwing("player"))          -- seconds left, weapon speed (main hand)
+/run print(WeaponSwingTimer_GetSwing("player", "off"))   -- off hand
+/run print(WeaponSwingTimer_GetSwing("target"))          -- your target
+```
+
 ### WotLK mechanics and community fixes
 Taken from the original author's own WotLK work and from open pull requests on the original repositories:
 - **Slam no longer resets the swing timer** (as in WotLK) – from watchyoursixx's `wotlk-master` branch.

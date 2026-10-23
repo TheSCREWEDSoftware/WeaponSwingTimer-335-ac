@@ -328,7 +328,7 @@ addon_data.target.UpdateVisualsOnSettingsChange = function()
         frame.main_bar:SetPoint("TOPLEFT", 0, 0)
         frame.main_bar:SetHeight(settings.height)
          if settings.classic_bars then
-            frame.main_bar:SetTexture(addon_data.media .. "Bar")
+            frame.main_bar:SetTexture(addon_data.GetBarTexture())
         else
             frame.main_bar:SetTexture(addon_data.media .. "Background")
         end
@@ -336,16 +336,16 @@ addon_data.target.UpdateVisualsOnSettingsChange = function()
         frame.main_spark:SetSize(16, settings.height)
         frame.main_left_text:SetPoint("TOPLEFT", 2, -(settings.height / 2) + (settings.fontsize / 2))
         frame.main_left_text:SetTextColor(settings.main_text_r, settings.main_text_g, settings.main_text_b, settings.main_text_a)
-		frame.main_left_text:SetFont(addon_data.font, settings.fontsize)
+		frame.main_left_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
 	
         frame.main_right_text:SetPoint("TOPRIGHT", -5, -(settings.height / 2) + (settings.fontsize / 2))
         frame.main_right_text:SetTextColor(settings.main_text_r, settings.main_text_g, settings.main_text_b, settings.main_text_a)
-		frame.main_right_text:SetFont(addon_data.font, settings.fontsize)
+		frame.main_right_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
 		
         frame.off_bar:SetPoint("BOTTOMLEFT", 0, 0)
         frame.off_bar:SetHeight(settings.height)
         if settings.classic_bars then
-            frame.off_bar:SetTexture(addon_data.media .. "Bar")
+            frame.off_bar:SetTexture(addon_data.GetBarTexture())
         else
             frame.off_bar:SetTexture(addon_data.media .. "Background")
         end
@@ -353,11 +353,11 @@ addon_data.target.UpdateVisualsOnSettingsChange = function()
         frame.off_spark:SetSize(16, settings.height)
         frame.off_left_text:SetPoint("BOTTOMLEFT", 2, (settings.height / 2) - (settings.fontsize / 2))
         frame.off_left_text:SetTextColor(settings.off_text_r, settings.off_text_g, settings.off_text_b, settings.off_text_a)
-		frame.off_left_text:SetFont(addon_data.font, settings.fontsize)
+		frame.off_left_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
 	
         frame.off_right_text:SetPoint("BOTTOMRIGHT", -5, (settings.height / 2) - (settings.fontsize / 2))
         frame.off_right_text:SetTextColor(settings.off_text_r, settings.off_text_g, settings.off_text_b, settings.off_text_a)
-		frame.off_right_text:SetFont(addon_data.font, settings.fontsize)
+		frame.off_right_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
 		
         if settings.show_left_text then
             frame.main_left_text:Show()
@@ -439,12 +439,12 @@ addon_data.target.InitializeVisuals = function()
     frame.main_spark:SetTexture(addon_data.media .. "Spark")
     -- Create the main hand bar left text
     frame.main_left_text = frame:CreateFontString(nil, "OVERLAY")
-    frame.main_left_text:SetFont(addon_data.font, settings.fontsize)
+    frame.main_left_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
     frame.main_left_text:SetJustifyV("MIDDLE")
     frame.main_left_text:SetJustifyH("LEFT")
     -- Create the main hand bar right text
     frame.main_right_text = frame:CreateFontString(nil, "OVERLAY")
-    frame.main_right_text:SetFont(addon_data.font, settings.fontsize)
+    frame.main_right_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
     frame.main_right_text:SetJustifyV("MIDDLE")
     frame.main_right_text:SetJustifyH("RIGHT")
     -- Create the off hand bar
@@ -454,12 +454,12 @@ addon_data.target.InitializeVisuals = function()
     frame.off_spark:SetTexture(addon_data.media .. "Spark")
     -- Create the off hand bar left text
     frame.off_left_text = frame:CreateFontString(nil, "OVERLAY")
-    frame.off_left_text:SetFont(addon_data.font, settings.fontsize)
+    frame.off_left_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
     frame.off_left_text:SetJustifyV("MIDDLE")
     frame.off_left_text:SetJustifyH("LEFT")
     -- Create the off hand bar right text
     frame.off_right_text = frame:CreateFontString(nil, "OVERLAY")
-    frame.off_right_text:SetFont(addon_data.font, settings.fontsize)
+    frame.off_right_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
     frame.off_right_text:SetJustifyV("MIDDLE")
     frame.off_right_text:SetJustifyH("RIGHT")
     -- Show it off
