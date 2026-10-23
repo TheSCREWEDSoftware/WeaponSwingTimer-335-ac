@@ -1,0 +1,32 @@
+## Interface: 30300
+## Title: WeaponSwingTimer |cff00ffb0(3.3.5a)|r
+## Notes: Tracks swing times for melee weapons, Hunter's Auto Shot, and wand's Shoot. Wrath 3.3.5a (12340) backport of WeaponSwingTimer-SixxFix by WatchYourSixx.
+## Notes-deDE: Zeichnet die Schwungzeiten für Nahkampfwaffen auf. Hunters Auto Shot und Wands Shoot.
+## Notes-esES: Rastrea los tiempos de swing de las armas cuerpo a cuerpo Hunters Auto Shot y las varitas Shoot.
+## Notes-esMX: Rastrea los tiempos de swing de las armas cuerpo a cuerpo Hunters Auto Shot y las varitas Shoot.
+## Notes-frFR: Suit les temps de swing pour les armes de mêlée Hunters Auto Shot et les baguettes magiques Shoot.
+## Notes-ruRU: Отслеживает время прохождения оружия ближнего боя. Охотники с автоматическим выстрелом и палочки стреляют.
+## Notes-zhCN: 跟踪近战武器的挥动时间猎人自动射击和魔杖射击。
+## Notes-zhTW: 跟踪近戰武器的揮動時間獵人自動射擊和魔杖射擊。
+## Author: LeftHandGlove, WatchYourSixx (3.3.5a backport: ac)
+## X-Website: https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix
+## X-Original: WeaponSwingTimer-SixxFix 6.7.4 (TBC Classic)
+## Version: 6.7.4-335a
+## DefaultState: enabled
+## SavedVariables: WSTProfileDB
+
+Libs\Ace3\LibStub\LibStub.lua
+Libs\Ace3\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\Ace3\AceDB-3.0\AceDB-3.0.lua
+Libs\Ace3\AceEvent-3.0\AceEvent-3.0.lua
+
+localization.lua
+WeaponSwingTimer_Compat.lua
+WeaponSwingTimer_ranged_base_speed.lua
+WeaponSwingTimer_Utils.lua
+WeaponSwingTimer_Player.lua
+WeaponSwingTimer_Target.lua
+WeaponSwingTimer_Castbar.lua
+WeaponSwingTimer_Hunter.lua
+WeaponSwingTimer_Config.lua
+WeaponSwingTimer_Core.lua
