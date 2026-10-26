@@ -412,10 +412,14 @@ addon_data.hunter.UpdateVisualsOnUpdate = function()
 					frame.shot_bar:SetVertexColor(settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
 				end
                 new_width = settings.width * (shot_timer / range_speed)
-            if new_width < 2 then
-                new_width = 2
+            -- 3.3.5a backport: when the shot is ready the bar is empty (the original kept a 2px
+            -- sliver in the middle, which showed as a stray line)
+            if new_width < 1 then
+                frame.shot_bar:Hide()
+            else
+                frame.shot_bar:Show()
+                frame.shot_bar:SetWidth(math.min(new_width, settings.width))
             end
-            frame.shot_bar:SetWidth(math.min(new_width, settings.width))
         else
 		    if addon_data.hunter.spell_GCD > 0.2 then
 				frame.shot_bar:SetVertexColor(0.8, 0.64, 0, 1)
@@ -547,15 +551,6 @@ addon_data.hunter.UpdateConfigPanelValues = function()
     addon_data.compat.SetColorTexture(panel.cooldown_color_picker.foreground, 
         settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
         
-    if settings.one_bar then
-        panel.explaination:SetTexture(addon_data.media .. "HunterOneBarExplainedAlpha")
-        panel.explaination:SetSize(350, 175)
-        panel.explaination:SetPoint('TOPLEFT', -50, -385)
-    else
-        panel.explaination:SetTexture(addon_data.media .. "HunterBarExplainedFullAlpha")
-        panel.explaination:SetSize(700, 175)
-        panel.explaination:SetPoint('TOPLEFT', -48, -410)
-    end
     panel.in_combat_alpha_slider:SetValue(settings.in_combat_alpha)
     panel.in_combat_alpha_slider.editbox:SetCursorPosition(0)
     panel.ooc_alpha_slider:SetValue(settings.ooc_alpha)
@@ -801,15 +796,10 @@ addon_data.hunter.CreateConfigPanel = function(parent_panel)
         L["Auto Shot delay timer"],
         L["Shows a timer that represents when Auto shot is delayed."],
         addon_data.hunter.ShowAutoShotDelayCheckBoxOnClick)
-    panel.show_autoshot_delay_checkbox:SetPoint("TOPLEFT", 10, -250)
+    panel.show_autoshot_delay_checkbox:SetPoint("TOPLEFT", 10 / 1.1, -252 / 1.1)
     
-    -- Add the explaination text
-    panel.explaination_text = addon_data.config.TextFactory(panel, L["Bar Explanation"], 16)
-    panel.explaination_text:SetPoint("TOPLEFT", 80 , -560)
-    panel.explaination_text:SetTextColor(1, 0.9, 0, 1)
-    
-    -- Add the explaination
-    panel.explaination = panel:CreateTexture(nil, 'ARTWORK')
+    -- 3.3.5a backport: the original "Bar Explanation" picture described the TBC Auto Shot
+    -- cast ("don't move or cast Multi-Shot"), which WotLK no longer has, so it is not shown.
     
     -- Return the final panel
     addon_data.hunter.UpdateConfigPanelValues()

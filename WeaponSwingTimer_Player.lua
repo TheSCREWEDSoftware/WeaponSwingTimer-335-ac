@@ -64,6 +64,11 @@ addon_data.player.LoadSettings = function()
 
     addon_data.player.class = select(2, UnitClass("player"))
     addon_data.player.guid  = UnitGUID("player")
+
+    -- 3.3.5a backport: seal twisting does not exist in WotLK, so the Paladin twist/GCD
+    -- markers are always off and their options are not shown
+    character_player_settings.pala_show_blood = false
+    character_player_settings.pala_show_command = false
 end
 
 --[[============================================================================================]]--
@@ -517,8 +522,6 @@ addon_data.player.UpdateConfigPanelValues = function()
     panel.fill_empty_checkbox:SetChecked(settings.fill_empty)
     panel.show_left_text_checkbox:SetChecked(settings.show_left_text)
     panel.show_right_text_checkbox:SetChecked(settings.show_right_text)
-    panel.show_paladin_blood_checkbox:SetChecked(settings.pala_show_blood)
-    panel.show_paladin_command_checkbox:SetChecked(settings.pala_show_command)
     panel.width_editbox:SetText(tostring(settings.width))
     panel.width_editbox:SetCursorPosition(0)
     panel.height_editbox:SetText(tostring(settings.height))
@@ -543,8 +546,6 @@ addon_data.player.UpdateConfigPanelValues = function()
     panel.ooc_alpha_slider.editbox:SetCursorPosition(0)
     panel.backplane_alpha_slider:SetValue(settings.backplane_alpha)
     panel.backplane_alpha_slider.editbox:SetCursorPosition(0)
-    panel.pala_offset_slider:SetValue(settings.pala_offset)
-    panel.pala_offset_slider.editbox:SetCursorPosition(0)
 end
 
 addon_data.player.EnabledCheckBoxOnClick = function(self)
@@ -745,22 +746,6 @@ addon_data.player.CreateConfigPanel = function(parent_panel)
         L["Enables the player's right side text."],
         addon_data.player.ShowRightTextCheckBoxOnClick)
     panel.show_right_text_checkbox:SetPoint("TOPLEFT", 10, -160)
-    -- Show Paladin Seal Twist Checkbox
-    panel.show_paladin_blood_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowPaladingBloodCheckBox",
-        panel,
-        L["Show Paladin Twist"],
-        L["Show 0.4s marker before swing to help with seal twisting. Apply seal after this."],
-        addon_data.player.ShowPaladinBloodCheckBoxOnClick)
-    panel.show_paladin_blood_checkbox:SetPoint("TOPLEFT", 10, -180)
-    -- Show Paladin Seal Twist Checkbox GCD
-    panel.show_paladin_command_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowPaladinCommandCheckBox",
-        panel,
-        L["Show Paladin GCD"],
-        L["Show GCD marker before swing to help with seal twisting. Apply first seal before this."],
-        addon_data.player.ShowPaladinCommandCheckBoxOnClick)
-    panel.show_paladin_command_checkbox:SetPoint("TOPLEFT", 10, -200)
     
     -- Width EditBox
     panel.width_editbox = addon_data.config.EditBoxFactory(
@@ -871,16 +856,6 @@ addon_data.player.CreateConfigPanel = function(parent_panel)
         0.05,
         addon_data.player.BackplaneAlphaOnValChange)
     panel.backplane_alpha_slider:SetPoint("TOPLEFT", 405, -160)
-    -- Backplane Alpha Slider
-    panel.pala_offset_slider = addon_data.config.SliderFactory(
-        "PlayerPalaOffsetSlider",
-        panel,
-        L["Paladin Marker offset"],
-        0,
-        30,
-        1,
-        addon_data.player.PaladinOffsetOnValChange)
-    panel.pala_offset_slider:SetPoint("TOPLEFT", 405, -210)
     
     -- Return the final panel
     addon_data.player.UpdateConfigPanelValues()

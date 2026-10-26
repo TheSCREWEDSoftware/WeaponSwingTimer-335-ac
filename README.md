@@ -44,6 +44,8 @@ In WotLK Auto Shot has no cast time, so there is no red 'casting' section to sta
 - **Ranged bars only when useful**: the shot bar shows for Hunters, and for Mages, Priests and Warlocks with a wand; the spell cast bar shows for Hunters. Both are hidden when no ranged weapon is equipped.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
+- **Options that don't apply to WotLK are removed or greyed out**: the Paladin seal-twist markers (seal twisting no longer exists), the TBC "Bar Explanation" picture (it described the Auto Shot cast), and cast-bar options for shots that are instant on your client (e.g. Aimed Shot).
+- **"Spell Bar Unlocked" only appears while the options window is open**, so the spell cast bar can be positioned without it showing all the time.
 
 ### Extras page (optional, everything off by default)
 Interface Options → AddOns → WeaponSwingTimer (3.3.5a) → **Extras**. These answer open requests on the original issue trackers:

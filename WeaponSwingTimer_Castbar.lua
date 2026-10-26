@@ -323,7 +323,7 @@ addon_data.castbar.OnUnitSpellCastFailed = function(unit, spell_id)
             addon_data.castbar.casting_spell_id = 0
 			if spell_aimed_enabled or spell_multi_enabled or spell_steady_enabled then
 				addon_data.castbar.frame.spell_bar:SetVertexColor(0.7, 0, 0, 1)
-				if character_castbar_settings.show_text then
+				if character_castbar_settings.show_cast_text then
 					frame.spell_text_center:SetText(L["Failed"])
 				end
 				frame.spell_bar:SetWidth(settings.width)
@@ -353,7 +353,7 @@ addon_data.castbar.OnUnitSpellCastInterrupted = function(unit, spell_id)
 			
 			if spell_aimed_enabled or spell_multi_enabled or spell_steady_enabled then
 				frame.spell_bar:SetVertexColor(0.7, 0, 0, 1)
-				if settings.show_text then
+				if settings.show_cast_text then
 					frame.spell_text_center:SetText(L["Interrupted"])
 				end
 				frame.spell_bar:SetWidth(settings.width)
@@ -411,10 +411,16 @@ addon_data.castbar.UpdateVisualsOnUpdate = function()
 	else
 		frame.spell_bar:SetVertexColor(0.2, 0.2, 0.2, 1)
 		frame:SetSize(settings.width, settings.height)
-        if not (settings.is_locked) then
+		frame.spell_spark:Hide()
+		-- 3.3.5a backport: the "Spell Bar Unlocked" placeholder only shows while the options
+		-- window is open (so the bar can be positioned), not all the time
+		local options_open = InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown()
+        if not (settings.is_locked) and options_open then
 			frame.spell_text_center:SetText(L["Spell Bar Unlocked"])
 			frame:SetAlpha(1)
 		else
+			frame.spell_text_center:SetText("")
+			frame.spell_bar_text:SetText("")
 			frame:SetAlpha(0)
 		end
     end
@@ -535,9 +541,52 @@ end
 --- Bar height, width, and offset values set with numerical value
 --- Color picker selection for 3 visual displays of the bars
 --- Alpha adjustments for 3 visual displays of the bars
+-- 3.3.5a backport: grey out cast-bar options for shots that are instant on this client
+-- (checked against the player's own spellbook, e.g. Aimed Shot is instant in WotLK)
+local shot_option_spells = {
+    show_multishot_cast_bar_checkbox = 2643,
+    show_aimedshot_cast_bar_checkbox = 19434,
+    show_steadyshot_cast_bar_checkbox = 34120,
+}
+addon_data.castbar.ValidateShotOptions = function(panel)
+    for key, spell_id in pairs(shot_option_spells) do
+        local checkbox = panel[key]
+        local label = checkbox and getglobal(checkbox:GetName() .. "Text")
+        if checkbox and label then
+            checkbox.wst_label = checkbox.wst_label or label:GetText()
+            local name = GetSpellInfo(spell_id)
+            local known, _, _, cast_ms = false, nil, nil, nil
+            if name then
+                local _, _, _, ms = addon_data.compat.GetSpellInfo(name)
+                if ms ~= nil and addon_data.compat.IsSpellKnownByName(name) then
+                    known, cast_ms = true, ms
+                end
+            end
+            checkbox.wst_tooltip = checkbox.wst_tooltip or checkbox.tooltip
+            if known and cast_ms == 0 then
+                -- greyed out (label kept short so it does not run under the edit boxes)
+                checkbox:Disable()
+                label:SetTextColor(0.5, 0.5, 0.5)
+                checkbox.tooltip = (L["Instant cast on this client, so there is no cast bar."]
+                    or "Instant cast on this client, so there is no cast bar.")
+            else
+                checkbox:Enable()
+                label:SetTextColor(1, 1, 1)
+                checkbox.tooltip = checkbox.wst_tooltip
+            end
+        end
+    end
+end
+
 addon_data.castbar.UpdateConfigPanelValues = function()
     local panel = addon_data.castbar.config_frame
     local settings = character_castbar_settings
+    addon_data.castbar.ValidateShotOptions(panel)
+    if not panel.wst_validate_hooked then
+        -- the spellbook may not be loaded yet at login: check again whenever the page opens
+        panel:HookScript("OnShow", addon_data.castbar.ValidateShotOptions)
+        panel.wst_validate_hooked = true
+    end
     panel.show_aimedshot_cast_bar_checkbox:SetChecked(settings.show_aimedshot_cast_bar)
     panel.show_multishot_cast_bar_checkbox:SetChecked(settings.show_multishot_cast_bar)
     panel.show_steadyshot_cast_bar_checkbox:SetChecked(settings.show_steadyshot_cast_bar)

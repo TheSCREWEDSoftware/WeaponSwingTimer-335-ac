@@ -109,6 +109,18 @@ compat.NormalizeSpell = function(id_or_name)
     return id_or_name
 end
 
+-- True if the player has this spell in their spellbook (3.3.5: no IsSpellKnown by name).
+compat.IsSpellKnownByName = function(name)
+    if not name or not GetSpellName then return false end
+    local i = 1
+    while true do
+        local book_name = GetSpellName(i, BOOKTYPE_SPELL or "spell")
+        if not book_name then return false end
+        if book_name == name then return true end
+        i = i + 1
+    end
+end
+
 -- GetSpellInfo returning the modern (classic-era) layout.
 compat.GetSpellInfo = function(spell)
     local name, rank, icon, _, _, _, cast_time, min_range, max_range = GetSpellInfo(spell)

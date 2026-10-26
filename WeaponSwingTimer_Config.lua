@@ -90,12 +90,18 @@ addon_data.config.TextFactory = function(parent, text, size)
     text_obj:SetJustifyV("MIDDLE")
     text_obj:SetJustifyH("CENTER")
     text_obj:SetText(text)
+    -- 3.3.5a backport: shadow so labels stay readable over the game world / logo
+    text_obj:SetShadowOffset(1, -1)
+    text_obj:SetShadowColor(0, 0, 0, 1)
     return text_obj
 end
 
 addon_data.config.CheckBoxFactory = function(g_name, parent, checkbtn_text, tooltip_text, on_click_func)
     local checkbox = CreateFrame("CheckButton", addon_name .. g_name, parent, "ChatConfigCheckButtonTemplate")
-    getglobal(checkbox:GetName() .. 'Text'):SetText(checkbtn_text)
+    local label = getglobal(checkbox:GetName() .. 'Text')
+    label:SetText(checkbtn_text)
+    label:SetShadowOffset(1, -1)
+    label:SetShadowColor(0, 0, 0, 1)
     checkbox.tooltip = tooltip_text
     checkbox:SetScript("OnClick", function(self)
         on_click_func(self)
@@ -302,15 +308,29 @@ addon_data.config.CreateConfigPanel = function(parent_panel)
     panel.welcome_checkbox:SetPoint("TOPLEFT", 0, -80)
 
     -- Show on classes
-    panel.classes_title = addon_data.config.TextFactory(panel, L["Show on classes"] or "Show on classes", 16)
-    panel.classes_title:SetPoint("TOPLEFT", 0, -125)
+    -- dark box behind the class list so the class colours are readable over the logo
+    panel.classes_box = CreateFrame("Frame", nil, panel)
+    panel.classes_box:SetPoint("TOPLEFT", -8, -117)
+    panel.classes_box:SetSize(330, 172)
+    panel.classes_box:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }})
+    panel.classes_box:SetBackdropColor(0, 0, 0, 0.8)
+    panel.classes_box:SetBackdropBorderColor(0.6, 0.6, 0.6, 0.8)
+    panel.classes_box:SetFrameLevel(panel:GetFrameLevel())
+    panel.classes_title = addon_data.config.TextFactory(panel.classes_box, L["Show on classes"] or "Show on classes", 16)
+    panel.classes_title:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -125)
     panel.classes_title:SetTextColor(1, 0.9, 0, 1)
     panel.class_checkboxes = {}
     for i, class in ipairs(addon_data.core.class_list) do
         local name = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]) or class
         local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         if color then
-            name = string.format("|cff%02x%02x%02x%s|r", color.r * 255, color.g * 255, color.b * 255, name)
+            -- lightened so dark class colours (Warlock, Shaman, Death Knight) stay readable
+            local function lift(c) return math.floor((c + (1 - c) * 0.35) * 255) end
+            name = string.format("|cff%02x%02x%02x%s|r", lift(color.r), lift(color.g), lift(color.b), name)
         end
         local checkbox = addon_data.config.CheckBoxFactory(
             "ClassCheckBox" .. class,
@@ -324,7 +344,8 @@ addon_data.config.CreateConfigPanel = function(parent_panel)
             end)
         local column = (i - 1) % 2
         local row = math.floor((i - 1) / 2)
-        checkbox:SetPoint("TOPLEFT", column * 140, -145 - row * 24)
+        -- checkboxes are scaled 1.1, so offsets are divided by 1.1 to land on real pixels
+        checkbox:SetPoint("TOPLEFT", (column * 160) / 1.1, (-147 - row * 26) / 1.1)
         panel.class_checkboxes[class] = checkbox
     end
     

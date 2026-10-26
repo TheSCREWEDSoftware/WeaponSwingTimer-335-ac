@@ -119,6 +119,7 @@ end
     State
 --------------------------------------------------------------------------------------------]]
 extras.flash_time = 0
+extras.flash_off_time = 0
 extras.main_hasted = false
 extras.off_hasted = false
 
@@ -320,18 +321,30 @@ local function AfterMeleeUpdate(unit_data, settings, is_player)
             marker:Hide()
         end
 
-        -- Flash when a swing lands (shown/hidden in one step, no fade)
-        local flash = EnsureTexture(frame, "wst_flash", "OVERLAY")
-        if not flash.wst_ready then
-            flash:SetAllPoints(frame)
-            addon_data.compat.SetColorTexture(flash, 1, 1, 1, 0.35)
-            flash:SetBlendMode("ADD")
-            flash.wst_ready = true
-        end
-        if ex.swing_flash and (GetTime() - extras.flash_time) < 0.15 then
-            flash:Show()
-        else
-            flash:Hide()
+        -- Flash the bar that just swung: a brief highlight on that bar only, shown and hidden
+        -- in one step (no fade)
+        for _, hand in ipairs({ "main", "off" }) do
+            local flash = EnsureTexture(frame, "wst_flash_" .. hand, "OVERLAY")
+            if not flash.wst_ready then
+                addon_data.compat.SetColorTexture(flash, 1, 1, 1, 0.25)
+                flash:SetBlendMode("ADD")
+                flash.wst_ready = true
+            end
+            local bar_visible = (hand == "main") or (unit_data.has_offhand and settings.show_offhand)
+            local since = GetTime() - ((hand == "main") and extras.flash_time or extras.flash_off_time)
+            if ex.swing_flash and bar_visible and since < 0.15 then
+                flash:ClearAllPoints()
+                if ex.vertical then
+                    flash:SetPoint((hand == "main") and "BOTTOMLEFT" or "BOTTOMRIGHT", 0, 0)
+                    flash:SetSize(settings.height, settings.width)
+                else
+                    flash:SetPoint((hand == "main") and "TOPLEFT" or "BOTTOMLEFT", 0, 0)
+                    flash:SetSize(settings.width, settings.height)
+                end
+                flash:Show()
+            else
+                flash:Hide()
+            end
         end
     end
 end
@@ -375,6 +388,7 @@ extras.Install = function()
     end
     local orig_reset_off = player.ResetOffSwingTimer
     player.ResetOffSwingTimer = function(...)
+        extras.flash_off_time = GetTime()
         extras.off_hasted = false
         return orig_reset_off(...)
     end
@@ -457,7 +471,8 @@ local function Toggle(panel, g_name, key, label, tooltip, x, y)
         character_extras_settings[key] = self:GetChecked() and true or false
         addon_data.core.UpdateAllVisualsOnSettingsChange()
     end)
-    checkbox:SetPoint("TOPLEFT", x, y)
+    -- CheckBoxFactory scales checkboxes by 1.1; divide so x/y are real pixels like other widgets
+    checkbox:SetPoint("TOPLEFT", x / 1.1, y / 1.1)
     checkbox.wst_key = key
     return checkbox
 end
@@ -487,57 +502,69 @@ extras.CreateConfigPanel = function(panel)
     local note = addon_data.config.TextFactory(panel, T("Optional features. Everything here is off by default."), 12)
     note:SetPoint("TOPLEFT", 10, -36)
 
+    -- Layout (real pixels). Checkbox rows are 26px apart; colour swatches sit on the same row.
+    local ROW = 26
+    local SWATCH_X = 420
+    local function swatch_y(row_y) return row_y - 7 end
+
     -- Appearance
     local appearance = addon_data.config.TextFactory(panel, T("Appearance (all bars)"), 16)
     appearance:SetPoint("TOPLEFT", 10, -62)
     appearance:SetTextColor(1, 0.82, 0, 1)
     panel.font_dropdown = MediaDropDown(panel, "ExtrasFontDropDown", "font", T("Font"), 0, -84)
-    panel.texture_dropdown = MediaDropDown(panel, "ExtrasTextureDropDown", "bar_texture", T("Bar texture"), 190, -84)
-    panel.border_dropdown = MediaDropDown(panel, "ExtrasBorderDropDown", "border", T("Border (when Show border is on)"), 380, -84)
+    panel.texture_dropdown = MediaDropDown(panel, "ExtrasTextureDropDown", "bar_texture", T("Bar texture"), 195, -84)
+    panel.border_dropdown = MediaDropDown(panel, "ExtrasBorderDropDown", "border", T("Border"), 390, -84)
     add_toggle(panel, "ExtrasVerticalCheckBox", "vertical", T("Vertical bars"),
-        T("Player and target bars fill from bottom to top."), 10, -140)
+        T("Player and target bars fill from bottom to top."), 10, -136)
 
     -- Player swing bar
     local player = addon_data.config.TextFactory(panel, T("Player swing bar"), 16)
-    player:SetPoint("TOPLEFT", 10, -175)
+    player:SetPoint("TOPLEFT", 10, -172)
     player:SetTextColor(1, 0.82, 0, 1)
+    local y = -194
     add_toggle(panel, "ExtrasQueuedCheckBox", "queued_color", T("Colour while a next-swing ability is queued"),
-        T("Heroic Strike, Cleave, Maul, Raptor Strike or Rune Strike."), 10, -195)
-    add_color(panel, "ExtrasQueuedColor", "queued", T("Queued colour"), 380, -199)
+        T("Heroic Strike, Cleave, Maul, Raptor Strike or Rune Strike."), 10, y)
+    add_color(panel, "ExtrasQueuedColor", "queued", T("Queued colour"), SWATCH_X, swatch_y(y))
+    y = y - ROW
     add_toggle(panel, "ExtrasHasteCheckBox", "haste_color", T("Colour when attack speed changes mid-swing"),
-        T("For example a Flurry proc. Lasts until the next swing."), 10, -217)
-    add_color(panel, "ExtrasHasteColor", "haste", T("Haste colour"), 380, -221)
+        T("For example a Flurry proc. Lasts until the next swing."), 10, y)
+    add_color(panel, "ExtrasHasteColor", "haste", T("Haste colour"), SWATCH_X, swatch_y(y))
+    y = y - ROW
     add_toggle(panel, "ExtrasSlamCheckBox", "slam_marker", T("Slam marker (Warriors)"),
-        T("Casting Slam after this marker delays your next swing."), 10, -239)
-    add_color(panel, "ExtrasSlamColor", "slam", T("Marker colour"), 380, -243)
-    add_toggle(panel, "ExtrasFlashCheckBox", "swing_flash", T("Flash when a swing lands"),
-        T("Briefly highlights the bar when your main hand swings."), 10, -261)
+        T("Casting Slam after this marker delays your next swing."), 10, y)
+    add_color(panel, "ExtrasSlamColor", "slam", T("Marker colour"), SWATCH_X, swatch_y(y))
+    y = y - ROW
+    add_toggle(panel, "ExtrasFlashCheckBox", "swing_flash", T("Flash the bar when a swing lands"),
+        T("A brief white highlight on the bar that just swung (main or off hand)."), 10, y)
+    y = y - ROW
     add_toggle(panel, "ExtrasDeadzoneCheckBox", "deadzone", T("Dead-zone colouring"),
-        T("Colours the start and end of the swing, e.g. for proc weapons."), 10, -283)
-    add_color(panel, "ExtrasDeadzoneColor", "deadzone", T("Dead-zone colour"), 380, -287)
+        T("Colours the start and end of the swing, e.g. for proc weapons. Set the seconds below."), 10, y)
+    add_color(panel, "ExtrasDeadzoneColor", "deadzone", T("Dead-zone colour"), SWATCH_X, swatch_y(y))
+    -- the edit box titles sit 12px above each box
     panel.leading_editbox = addon_data.config.EditBoxFactory("ExtrasLeadingEditBox", panel,
-        T("Leading (s)"), 60, 25, function(self)
+        T("Leading (s)"), 70, 25, function(self)
             character_extras_settings.leading_deadzone = tonumber(self:GetText()) or 0
         end)
-    panel.leading_editbox:SetPoint("TOPLEFT", 40, -325)
+    panel.leading_editbox:SetPoint("TOPLEFT", 45, y - 46)
     panel.trailing_editbox = addon_data.config.EditBoxFactory("ExtrasTrailingEditBox", panel,
-        T("Trailing (s)"), 60, 25, function(self)
+        T("Trailing (s)"), 70, 25, function(self)
             character_extras_settings.trailing_deadzone = tonumber(self:GetText()) or 0
         end)
-    panel.trailing_editbox:SetPoint("TOPLEFT", 120, -325)
+    panel.trailing_editbox:SetPoint("TOPLEFT", 135, y - 46)
 
     -- Experimental
+    y = y - 90
     local experimental = addon_data.config.TextFactory(panel, T("Experimental"), 16)
-    experimental:SetPoint("TOPLEFT", 10, -365)
+    experimental:SetPoint("TOPLEFT", 10, y)
     experimental:SetTextColor(1, 0.82, 0, 1)
     add_toggle(panel, "ExtrasCastResetCheckBox", "cast_reset", T("Reset swing after a spell cast"),
         T("Restarts your swing when a spell with a cast time finishes (not Slam). Check it matches your server."),
-        10, -385)
+        10, y - 22)
 
     -- API
     local api = addon_data.config.TextFactory(panel,
         T("For macros/addons: /run print(WeaponSwingTimer_GetSwing(\"player\")) - also \"target\", \"off\""), 11)
-    api:SetPoint("TOPLEFT", 10, -420)
+    api:SetPoint("TOPLEFT", 10, y - 62)
 
     extras.config_frame = panel
     extras.UpdateConfigPanelValues()
