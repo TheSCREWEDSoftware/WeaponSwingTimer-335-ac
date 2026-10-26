@@ -37,7 +37,11 @@ extras.default_settings = {
     deadzone_r = 1.0, deadzone_g = 0.4, deadzone_b = 0.0, deadzone_a = 1.0,
     slam_marker = false,
     slam_r = 1.0, slam_g = 1.0, slam_b = 1.0, slam_a = 0.9,
-    swing_flash = false,
+    swing_flash = false,  -- old single setting, migrated to the per-bar ones below
+    hl_player_main = false, hl_player_main_r = 1.0, hl_player_main_g = 1.0, hl_player_main_b = 1.0, hl_player_main_a = 0.35,
+    hl_player_off = false,  hl_player_off_r = 1.0,  hl_player_off_g = 1.0,  hl_player_off_b = 1.0,  hl_player_off_a = 0.35,
+    hl_target_main = false, hl_target_main_r = 1.0, hl_target_main_g = 1.0, hl_target_main_b = 1.0, hl_target_main_a = 0.35,
+    hl_target_off = false,  hl_target_off_r = 1.0,  hl_target_off_g = 1.0,  hl_target_off_b = 1.0,  hl_target_off_a = 0.35,
     haste_color = false,
     haste_r = 0.2, haste_g = 0.9, haste_b = 0.2, haste_a = 1.0,
     cast_reset = false,
@@ -51,6 +55,12 @@ extras.LoadSettings = function()
         if character_extras_settings[setting] == nil then
             character_extras_settings[setting] = value
         end
+    end
+    -- the earlier single "flash" option becomes the highlight on both of your bars
+    if character_extras_settings.swing_flash then
+        character_extras_settings.hl_player_main = true
+        character_extras_settings.hl_player_off = true
+        character_extras_settings.swing_flash = false
     end
 end
 
@@ -118,8 +128,9 @@ end
 --[[------------------------------------------------------------------------------------------
     State
 --------------------------------------------------------------------------------------------]]
-extras.flash_time = 0
-extras.flash_off_time = 0
+-- when each bar last started a new swing (for the background highlight)
+extras.swing_started = { player_main = 0, player_off = 0, target_main = 0, target_off = 0 }
+extras.HIGHLIGHT_TIME = 0.2
 extras.main_hasted = false
 extras.off_hasted = false
 
@@ -257,6 +268,30 @@ local function AfterMeleeUpdate(unit_data, settings, is_player)
         ApplyVertical(unit_data, settings)
     end
 
+    -- New swing: change the bar's background (behind the fill) for a moment, per bar.
+    -- Shown and hidden in one step, no fade.
+    local who = is_player and "player" or "target"
+    for _, hand in ipairs({ "main", "off" }) do
+        local key = "hl_" .. who .. "_" .. hand
+        local bg = EnsureTexture(frame, "wst_hl_" .. hand, "BORDER")
+        local bar_visible = (hand == "main") or (unit_data.has_offhand and settings.show_offhand)
+        local since = GetTime() - extras.swing_started[who .. "_" .. hand]
+        if ex[key] and bar_visible and since < extras.HIGHLIGHT_TIME then
+            addon_data.compat.SetColorTexture(bg, ex[key .. "_r"], ex[key .. "_g"], ex[key .. "_b"], ex[key .. "_a"])
+            bg:ClearAllPoints()
+            if ex.vertical then
+                bg:SetPoint((hand == "main") and "BOTTOMLEFT" or "BOTTOMRIGHT", 0, 0)
+                bg:SetSize(settings.height, settings.width)
+            else
+                bg:SetPoint((hand == "main") and "TOPLEFT" or "BOTTOMLEFT", 0, 0)
+                bg:SetSize(settings.width, settings.height)
+            end
+            bg:Show()
+        else
+            bg:Hide()
+        end
+    end
+
     if is_player then
         -- Bar colour: queued > dead zone > haste > normal
         if ex.queued_color or ex.deadzone or ex.haste_color then
@@ -321,31 +356,6 @@ local function AfterMeleeUpdate(unit_data, settings, is_player)
             marker:Hide()
         end
 
-        -- Flash the bar that just swung: a brief highlight on that bar only, shown and hidden
-        -- in one step (no fade)
-        for _, hand in ipairs({ "main", "off" }) do
-            local flash = EnsureTexture(frame, "wst_flash_" .. hand, "OVERLAY")
-            if not flash.wst_ready then
-                addon_data.compat.SetColorTexture(flash, 1, 1, 1, 0.25)
-                flash:SetBlendMode("ADD")
-                flash.wst_ready = true
-            end
-            local bar_visible = (hand == "main") or (unit_data.has_offhand and settings.show_offhand)
-            local since = GetTime() - ((hand == "main") and extras.flash_time or extras.flash_off_time)
-            if ex.swing_flash and bar_visible and since < 0.15 then
-                flash:ClearAllPoints()
-                if ex.vertical then
-                    flash:SetPoint((hand == "main") and "BOTTOMLEFT" or "BOTTOMRIGHT", 0, 0)
-                    flash:SetSize(settings.height, settings.width)
-                else
-                    flash:SetPoint((hand == "main") and "TOPLEFT" or "BOTTOMLEFT", 0, 0)
-                    flash:SetSize(settings.width, settings.height)
-                end
-                flash:Show()
-            else
-                flash:Hide()
-            end
-        end
     end
 end
 
@@ -382,15 +392,25 @@ extras.Install = function()
 
     local orig_reset_main = player.ResetMainSwingTimer
     player.ResetMainSwingTimer = function(...)
-        extras.flash_time = GetTime()
+        extras.swing_started.player_main = GetTime()
         extras.main_hasted = false
         return orig_reset_main(...)
     end
     local orig_reset_off = player.ResetOffSwingTimer
     player.ResetOffSwingTimer = function(...)
-        extras.flash_off_time = GetTime()
+        if player.has_offhand then extras.swing_started.player_off = GetTime() end
         extras.off_hasted = false
         return orig_reset_off(...)
+    end
+    local orig_target_main = target.ResetMainSwingTimer
+    target.ResetMainSwingTimer = function(...)
+        if UnitExists("target") then extras.swing_started.target_main = GetTime() end
+        return orig_target_main(...)
+    end
+    local orig_target_off = target.ResetOffSwingTimer
+    target.ResetOffSwingTimer = function(...)
+        if target.has_offhand and UnitExists("target") then extras.swing_started.target_off = GetTime() end
+        return orig_target_off(...)
     end
 end
 extras.Install()
@@ -534,9 +554,6 @@ extras.CreateConfigPanel = function(panel)
         T("Casting Slam after this marker delays your next swing."), 10, y)
     add_color(panel, "ExtrasSlamColor", "slam", T("Marker colour"), SWATCH_X, swatch_y(y))
     y = y - ROW
-    add_toggle(panel, "ExtrasFlashCheckBox", "swing_flash", T("Flash the bar when a swing lands"),
-        T("A brief white highlight on the bar that just swung (main or off hand)."), 10, y)
-    y = y - ROW
     add_toggle(panel, "ExtrasDeadzoneCheckBox", "deadzone", T("Dead-zone colouring"),
         T("Colours the start and end of the swing, e.g. for proc weapons. Set the seconds below."), 10, y)
     add_color(panel, "ExtrasDeadzoneColor", "deadzone", T("Dead-zone colour"), SWATCH_X, swatch_y(y))
@@ -552,8 +569,27 @@ extras.CreateConfigPanel = function(panel)
         end)
     panel.trailing_editbox:SetPoint("TOPLEFT", 135, y - 46)
 
+    -- New swing highlight: background change per bar, each with its own colour
+    y = y - 86
+    local highlight = addon_data.config.TextFactory(panel, T("Change bar background when a new swing starts"), 16)
+    highlight:SetPoint("TOPLEFT", 10, y)
+    highlight:SetTextColor(1, 0.82, 0, 1)
+    local hl_tip = T("Briefly changes the background of this bar when its new swing starts.")
+    local hl = {
+        { "hl_player_main", T("Your main hand"),   10,  y - 22 },
+        { "hl_player_off",  T("Your off hand"),    300, y - 22 },
+        { "hl_target_main", T("Target main hand"), 10,  y - 22 - ROW },
+        { "hl_target_off",  T("Target off hand"),  300, y - 22 - ROW },
+    }
+    for _, h in ipairs(hl) do
+        local key, label, hx, hy = h[1], h[2], h[3], h[4]
+        local name = key:gsub("_(%a)", function(c) return c:upper() end)
+        add_toggle(panel, "Extras" .. name .. "CheckBox", key, label, hl_tip, hx, hy)
+        add_color(panel, "Extras" .. name .. "Color", key, "", hx + 180, swatch_y(hy))
+    end
+
     -- Experimental
-    y = y - 90
+    y = y - 22 - ROW - 40
     local experimental = addon_data.config.TextFactory(panel, T("Experimental"), 16)
     experimental:SetPoint("TOPLEFT", 10, y)
     experimental:SetTextColor(1, 0.82, 0, 1)

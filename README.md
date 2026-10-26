@@ -54,7 +54,7 @@ Interface Options → AddOns → WeaponSwingTimer (3.3.5a) → **Extras**. These
 - **Colour while a next-swing ability is queued**: Heroic Strike, Cleave, Maul, Raptor Strike, Rune Strike ([SixxFix #11](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/11)).
 - **Colour when attack speed changes mid-swing**, e.g. Flurry ([LeftHandedGlove #18](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/issues/18)).
 - **Slam marker** for Warriors: casting Slam after it delays your next swing ([SixxFix #12](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/12)).
-- **Flash when a swing lands** ([SixxFix #19](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/19)).
+- **Change bar background when a new swing starts**, set separately for your main hand, your off hand, the target's main hand and the target's off hand, each with its own colour ([SixxFix #19](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/19)).
 - **Dead-zone colouring** with leading/trailing seconds ([SixxFix #21](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/21)) – logic by maldon, [LeftHandedGlove PR #22](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/22).
 - **Reset swing after a spell cast** – experimental, check it matches your server ([LeftHandedGlove #19](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/issues/19)).
 
