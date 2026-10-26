@@ -37,7 +37,7 @@ extras.default_settings = {
     deadzone_r = 1.0, deadzone_g = 0.4, deadzone_b = 0.0, deadzone_a = 1.0,
     slam_marker = false,
     slam_r = 1.0, slam_g = 1.0, slam_b = 1.0, slam_a = 0.9,
-    swing_flash = false,  -- old single setting, migrated to the per-bar ones below
+    swing_flash = false,  -- old single setting, no longer used
     hl_player_main = false, hl_player_main_r = 1.0, hl_player_main_g = 1.0, hl_player_main_b = 1.0, hl_player_main_a = 0.35,
     hl_player_off = false,  hl_player_off_r = 1.0,  hl_player_off_g = 1.0,  hl_player_off_b = 1.0,  hl_player_off_a = 0.35,
     hl_target_main = false, hl_target_main_r = 1.0, hl_target_main_g = 1.0, hl_target_main_b = 1.0, hl_target_main_a = 0.35,
@@ -56,11 +56,15 @@ extras.LoadSettings = function()
             character_extras_settings[setting] = value
         end
     end
-    -- the earlier single "flash" option becomes the highlight on both of your bars
-    if character_extras_settings.swing_flash then
-        character_extras_settings.hl_player_main = true
-        character_extras_settings.hl_player_off = true
+    -- New-swing highlights start unticked. Earlier builds carried the old "flash" option over to
+    -- them; undo that once so every profile starts with all four off.
+    if not character_extras_settings.hl_reset_v1 then
         character_extras_settings.swing_flash = false
+        character_extras_settings.hl_player_main = false
+        character_extras_settings.hl_player_off = false
+        character_extras_settings.hl_target_main = false
+        character_extras_settings.hl_target_off = false
+        character_extras_settings.hl_reset_v1 = true
     end
 end
 
