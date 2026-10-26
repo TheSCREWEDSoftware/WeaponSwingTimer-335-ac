@@ -11,6 +11,35 @@ local function T(text) return (L and L[text]) or text end
 
 local function P(section) return addon_data.db.profile[section] end
 
+-- Class names in option text get their class colour
+local CLASS_WORDS = {
+    { "Death Knights", "DEATHKNIGHT" }, { "Death Knight", "DEATHKNIGHT" },
+    { "Hunters", "HUNTER" }, { "Hunter", "HUNTER" }, { "Mages", "MAGE" }, { "Mage", "MAGE" },
+    { "Priests", "PRIEST" }, { "Priest", "PRIEST" }, { "Warlocks", "WARLOCK" }, { "Warlock", "WARLOCK" },
+    { "Warriors", "WARRIOR" }, { "Warrior", "WARRIOR" }, { "Paladins", "PALADIN" }, { "Paladin", "PALADIN" },
+    { "Rogues", "ROGUE" }, { "Rogue", "ROGUE" }, { "Shamans", "SHAMAN" }, { "Shaman", "SHAMAN" },
+    { "Druids", "DRUID" }, { "Druid", "DRUID" },
+}
+local function CC(text)
+    if not RAID_CLASS_COLORS then return text end
+    local parts, i = {}, 1
+    while i <= #text do
+        local matched = false
+        for _, w in ipairs(CLASS_WORDS) do
+            local word = w[1]
+            if text:sub(i, i + #word - 1) == word and not text:sub(i + #word, i + #word):match("%a") then
+                local c = RAID_CLASS_COLORS[w[2]]
+                parts[#parts + 1] = string.format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, word)
+                i = i + #word
+                matched = true
+                break
+            end
+        end
+        if not matched then parts[#parts + 1] = text:sub(i, i); i = i + 1 end
+    end
+    return table.concat(parts)
+end
+
 -- Don't redraw the window while a control is changing (sliders would jump)
 local in_set = false
 local function Refresh()
@@ -128,7 +157,7 @@ end
 
 local function ShotGroup()
     local args = {
-        info = Text(T("Shows the time until your next Auto Shot (Hunters) or wand Shoot (Mages, Priests, Warlocks). Only shown while a ranged weapon or wand is equipped."), 0),
+        info = Text(CC(T("Shows the time until your next Auto Shot (Hunters) or wand Shoot (Mages, Priests, Warlocks). Only shown while a ranged weapon or wand is equipped.")), 0),
         enabled = Toggle("hunter", "enabled", T("Enable"), nil, 1),
         show_border = Toggle("hunter", "show_border", T("Show border"), nil, 2),
         classic_bars = Toggle("hunter", "classic_bars", T("Classic bars"), nil, 3),
@@ -143,7 +172,7 @@ end
 
 local function CastGroup()
     local args = {
-        info = Text(T("Hunters only: a cast bar for shots with a cast time, such as Steady Shot."), 0),
+        info = Text(CC(T("Hunters only: a cast bar for shots with a cast time, such as Steady Shot. Normal spells use the game's own cast bar.")), 0),
         enabled = Toggle("castbar", "enabled", T("Enable"), nil, 1),
         show_border = Toggle("castbar", "show_border", T("Show border"), nil, 2),
         show_cast_text = Toggle("castbar", "show_cast_text", T("Show Cast Text"), nil, 3),
@@ -175,7 +204,15 @@ local function ExtrasGroup()
     return {
         type = "group", name = T("Extras"), order = 30,
         args = {
-            info = Text(T("Optional features. Everything here is off by default."), 0),
+            info = Text(T("Optional features."), 0),
+            layout = {
+                type = "group", name = T("Layout"), order = 0.5,
+                args = {
+                    info = Text(T("Stack, from the bottom up: Ranged, Spell cast bar, Target (off hand under main hand), You (off hand under main hand). Bars that are hidden drop out and the rest close the gap. Drag any bar (with bars unlocked) to move the whole stack."), 0),
+                    stack_bars = Toggle("extras", "stack_bars", T("Stack bars"), T("While on, the X/Y offsets of each bar are not used."), 1, { width = "full" }),
+                    stack_gap = Range("extras", "stack_gap", T("Gap between bars"), nil, 0, 60, 1, 2),
+                },
+            },
             appearance = {
                 type = "group", name = T("Appearance"), order = 1,
                 args = {
@@ -200,7 +237,7 @@ local function ExtrasGroup()
                     queued = Color("extras", "queued", T("Colour"), nil, 2),
                     haste_color = Toggle("extras", "haste_color", T("Colour when attack speed changes mid-swing"), T("For example a Flurry proc. Lasts until the next swing."), 3, { width = "double" }),
                     haste = Color("extras", "haste", T("Colour"), nil, 4),
-                    slam_marker = Toggle("extras", "slam_marker", T("Slam marker (Warriors)"), T("Casting Slam after this marker delays your next swing."), 5, { width = "double" }),
+                    slam_marker = Toggle("extras", "slam_marker", CC(T("Slam marker (Warriors)")), T("Casting Slam after this marker delays your next swing."), 5, { width = "double" }),
                     slam = Color("extras", "slam", T("Colour"), nil, 6),
                     deadzone = Toggle("extras", "deadzone", T("Dead-zone colouring"), T("Colours the start and end of the swing, e.g. for proc weapons."), 7, { width = "double" }),
                     deadzone_c = Color("extras", "deadzone", T("Colour"), nil, 8),
@@ -479,9 +516,9 @@ function options.Build()
                 func = function() options.SetPreview(not addon_data.core.preview) end,
             },
             preview_possible_only = Toggle("core", "preview_possible_only", T("Test bars: only show bars this character can use"),
-                T("Leaves out the shot bar for classes without Auto Shot or a wand, the spell cast bar for non-Hunters, and your off-hand row for classes that can't dual wield."), 3.6, { width = "full" }),
+                CC(T("Leaves out the shot bar for classes without Auto Shot or a wand, the spell cast bar for non-Hunters, and your off-hand row for classes that can't dual wield.")), 3.6, { width = "full" }),
             only_class_bars = Toggle("core", "only_class_bars", T("Hide ranged bars this class can't use"),
-                T("Shot bar: only Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: only Hunters. Untick to allow them on any class."), 4.5, { width = "full" }),
+                CC(T("Shot bar: only Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: only Hunters. Untick to allow them on any class.")), 4.5, { width = "full" }),
             minimap = {
                 type = "toggle", name = T("Show minimap button"), order = 4.7,
                 desc = T("Left-click opens the options, right-click shows/hides all bars, drag to move."),
@@ -518,7 +555,7 @@ function options.Build()
             ranged = {
                 type = "group", name = T("Ranged Settings"), order = 20,
                 args = {
-                    info = Text(T("Auto Shot / wand bar and the Hunter spell cast bar."), 0),
+                    info = Text(CC(T("Auto Shot / wand bar and the Hunter spell cast bar.")), 0),
                     shot = ShotGroup(),
                     cast = CastGroup(),
                 },
@@ -528,7 +565,11 @@ function options.Build()
     }
     local profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon_data.db)
     profiles.order = 100
-    profiles.args.share = ShareGroup()
+    -- export / import sit directly on the Profiles page, under the profile controls
+    for key, item in pairs(ShareGroup().args) do
+        item.order = 1000 + item.order
+        profiles.args["share_" .. key] = item
+    end
     root.args.profiles = profiles
     return root
 end
@@ -711,6 +752,7 @@ function options.Register()
     local panel = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(APP, APP)
     addon_data.config.config_parent_panel = panel
     options.CreateMinimapButton()
+    addon_data.extras.HookStackDragging()
     for _, module in ipairs({ addon_data.player, addon_data.target, addon_data.hunter, addon_data.castbar }) do
         for _, key in ipairs({ "main_left_text", "main_right_text", "off_left_text", "off_right_text",
                                "shot_bar_text", "spell_bar_text", "spell_text_center" }) do

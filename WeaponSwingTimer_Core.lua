@@ -633,6 +633,7 @@ local function CoreFrame_OnUpdate(self, elapsed)
     addon_data.hunter.OnUpdate(elapsed)
 	addon_data.castbar.OnUpdate(elapsed)
     if addon_data.core.preview then addon_data.options.ShowPreview() end
+    addon_data.extras.Stack()
 end
 
 addon_data.core.MissHandler = function(unit, miss_type, is_offhand, is_player)
@@ -750,7 +751,20 @@ function addon_data.core.InitDB()
         end
     end
 
+    -- the old option pages saved ticked boxes as 1: store them as true/false
+    local function NormalizeBooleans()
+        for _, section in ipairs({ "core", "player", "target", "hunter", "castbar", "extras" }) do
+            local defaults, current = addon_data[section].default_settings, addon_data.db.profile[section]
+            for key, default in pairs(defaults) do
+                if type(default) == "boolean" and type(current[key]) == "number" then
+                    current[key] = current[key] ~= 0
+                end
+            end
+        end
+    end
+
     local function RefreshFromDB()
+        NormalizeBooleans()
         character_core_settings    = addon_data.db.profile.core
         character_player_settings  = addon_data.db.profile.player
         character_target_settings  = addon_data.db.profile.target

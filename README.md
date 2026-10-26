@@ -41,11 +41,11 @@ Interface Options → AddOns → **WeaponSwingTimer**. The page opens on the gen
 - **WeaponSwingTimer**: lock all bars, **Show test bars** (every row labelled with a sample fill and time so you can drag the bars into place; stays on until you turn it off), **Test bars: only show bars this character can use**, **Hide ranged bars this class can't use**, **Show minimap button**, welcome message, and which classes the bars show on.
 - **Melee Settings** → Player bar, Target bar
 - **Ranged Settings** → Shot bar, Spell cast bar
-- **Extras** → Appearance, Swing bar colours, New swing background, Experimental
-- **Profiles** → choose, create, copy, delete or reset profiles; **Export / Import**
+- **Extras** → Layout, Appearance, Swing bar colours, New swing background, Experimental
+- **Profiles** → choose, create, copy, delete or reset profiles, plus **Export / Import** codes on the same page
 
 ### Sharing profiles
-Profiles → **Export / Import**. Copy the code from the export box to share your current profile or move it to another account. To import, paste a code, press Accept, then either import it into your current profile or as a new profile. Codes only contain settings you've changed from the defaults, and only known settings of the right type are imported.
+On the **Profiles** page, under the profile controls: copy the code from the export box to share your current profile or move it to another account. To import, paste a code, press Accept, then either import it into your current profile or as a new profile. Codes only contain settings you've changed from the defaults, and only known settings of the right type are imported.
 
 ## Differences from the original
 
@@ -56,7 +56,8 @@ Profiles → **Export / Import**. Copy the code from the export box to share you
 - **Test bars** for positioning (button, `/wst test`, or right-click the minimap button).
 - **Minimap button** (can be hidden in the options; drag to move).
 - **Profile export / import** codes.
-- **Options window** rebuilt with Ace3 (AceConfig/AceGUI) as a collapsible tree.
+- **Options window** rebuilt with Ace3 (AceConfig/AceGUI) as a collapsible tree; class names in the option text use their class colours.
+- **Stacked bars** (Extras → Layout, on by default): from the bottom up Ranged, Spell cast bar, Target, You. Hidden bars drop out and the rest close the gap; drag any bar to move the whole stack.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
 - **Readable bar colours**: the shot bar defaults to green and the cast/GCD colour is a darker orange, so the white text stays readable; bar text has a shadow.

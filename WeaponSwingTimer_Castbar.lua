@@ -72,7 +72,8 @@ addon_data.castbar.default_settings = {
     show_multishot_cast_bar = true,
     show_steadyshot_cast_bar = true,
     show_latency_bars = false,
-    show_border = true
+    show_border = true,
+    is_locked = false
 }
 --- Initializing variables for calculations and function calls
 

@@ -10,6 +10,11 @@ local function T(text) return (L and L[text]) or text end
 extras.default_settings = {
     font = "default",
     timer_decimals = 1,
+    stack_bars = true,
+    stack_gap = 20,
+    stack_init = false,
+    stack_x = 0,
+    stack_y = -276,
     bar_texture = "default",
     border = "default",
     vertical = false,
@@ -401,6 +406,61 @@ cast_frame:SetScript("OnEvent", function(self, event, unit, spell)
         extras.cast_in_progress = nil
     end
 end)
+
+-- Stack: bottom to top Ranged, Spell cast, Target, Self; hidden bars collapse
+local function StackFrames()
+    return { addon_data.hunter.frame, addon_data.castbar.frame, addon_data.target.frame, addon_data.player.frame }
+end
+
+-- First use: start the stack where the shot bar sits now
+local function InitStack(ex)
+    local hs = character_hunter_settings
+    if hs and hs.point == "CENTER" and hs.rel_point == "CENTER" then
+        ex.stack_x = hs.x_offset or 0
+        ex.stack_y = (hs.y_offset or -260) - (hs.height or 12) / 2
+    end
+    ex.stack_init = true
+end
+
+extras.Stack = function()
+    local ex = S()
+    if not ex.stack_bars or ex.vertical or extras.stack_dragging then return end
+    if not ex.stack_init then InitStack(ex) end
+    local y = ex.stack_y
+    for _, frame in ipairs(StackFrames()) do
+        if frame and frame:IsShown() then
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOM", UIParent, "CENTER", ex.stack_x, y)
+            y = y + (frame:GetHeight() or 0) + ex.stack_gap
+        end
+    end
+end
+
+-- Dragging any bar moves the whole stack
+local function OnStackDragStop(dropped)
+    extras.stack_dragging = false
+    local ex = S()
+    if not ex.stack_bars or ex.vertical then return end
+    local below = 0
+    for _, frame in ipairs(StackFrames()) do
+        if frame == dropped then break end
+        if frame and frame:IsShown() then below = below + (frame:GetHeight() or 0) + ex.stack_gap end
+    end
+    local cx = dropped:GetCenter()
+    local bottom = dropped:GetBottom()
+    if cx and bottom then
+        ex.stack_x = math.floor(cx - UIParent:GetWidth() / 2 + 0.5)
+        ex.stack_y = math.floor(bottom - UIParent:GetHeight() / 2 - below + 0.5)
+        ex.stack_init = true
+    end
+end
+
+extras.HookStackDragging = function()
+    for _, frame in ipairs(StackFrames()) do
+        frame:HookScript("OnDragStart", function() extras.stack_dragging = true end)
+        frame:HookScript("OnDragStop", function(self) OnStackDragStop(self) end)
+    end
+end
 
 -- API for macros and other addons (LeftHandedGlove #13)
 function WeaponSwingTimer_GetSwing(unit, hand)
