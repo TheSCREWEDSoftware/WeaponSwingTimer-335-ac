@@ -16,6 +16,7 @@ end
 
 -- Timer text: "1.3" (original) or "1.25" (Extras > Appearance > Timer decimals)
 addon_data.utils.FormatTime = function(t, fixed)
+    t = math.max(t or 0, 0)
     local ex = character_extras_settings
     if ex and ex.timer_decimals == 2 then
         return string.format("%.2f", math.max(floor(t * 100) / 100, 0))

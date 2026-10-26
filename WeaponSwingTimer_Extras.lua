@@ -16,6 +16,9 @@ extras.default_settings = {
     stack_order = "hunter,castbar,target,player",
     combine_ranged = false,
     match_sizes = true,
+    range_player = false,
+    range_target = false,
+    range_hunter = false,
     stack_init = false,
     stack_x = 0,
     stack_y = -276,
@@ -572,13 +575,55 @@ extras.HookStackDragging = function()
     end
 end
 
+-- Fully visible while the target is in range (per bar)
+local attack_name = GetSpellInfo(6603)
+local ranged_names = { GetSpellInfo(75), GetSpellInfo(5019) }
+
+local function InMeleeRange()
+    if not (UnitExists("target") and UnitCanAttack("player", "target")) then return false end
+    local r = attack_name and IsSpellInRange and IsSpellInRange(attack_name, "target")
+    if r ~= nil then return r == 1 end
+    return CheckInteractDistance("target", 3) and true or false  -- about 10 yards
+end
+
+local function InShotRange()
+    if not (UnitExists("target") and UnitCanAttack("player", "target")) or not IsSpellInRange then return false end
+    for _, name in ipairs(ranged_names) do
+        if IsSpellInRange(name, "target") == 1 then return true end
+    end
+    return false
+end
+
+extras.ApplyRangeAlpha = function()
+    local ex = S()
+    if not (ex.range_player or ex.range_target or ex.range_hunter) then return end
+    local melee = (ex.range_player or ex.range_target) and InMeleeRange()
+    if ex.range_player and melee then addon_data.player.frame:SetAlpha(1) end
+    if ex.range_target and melee then addon_data.target.frame:SetAlpha(1) end
+    if ex.range_hunter and InShotRange() then addon_data.hunter.frame:SetAlpha(1) end
+end
+
 -- Spell cast bar for every cast and channel (UnitCastingInfo / UnitChannelInfo)
 local cast = { active = false }
 extras.cast_state = cast
 
+-- Red pushback text ("+0.5") left of the time
+local function PushbackText(f, s)
+    if not f.wst_push then
+        f.wst_push = f:CreateFontString(nil, "OVERLAY")
+        f.wst_push:SetShadowOffset(1, -1)
+        f.wst_push:SetTextColor(1, 0.25, 0.25, 1)
+    end
+    f.wst_push:SetFont(addon_data.GetBarFont(), s.fontsize)
+    f.wst_push:ClearAllPoints()
+    f.wst_push:SetPoint("RIGHT", f.spell_bar_text, "LEFT", -3, 0)
+    return f.wst_push
+end
+
 local function HideCastText(f)
     f.spell_text_center:SetText("")
     f.spell_bar_text:SetText("")
+    if f.wst_push then f.wst_push:SetText("") end
 end
 
 extras.CastUpdate = function()
@@ -588,13 +633,17 @@ extras.CastUpdate = function()
     f:SetSize(s.width, s.height)
     f.cast_latency:Hide()
     local now = GetTime()
-    local name, _, _, _, start_ms, end_ms = UnitCastingInfo("player")
+    local name, _, _, _, start_ms, end_ms, _, cast_id = UnitCastingInfo("player")
     local channel = false
     if not name then
         name, _, _, _, start_ms, end_ms = UnitChannelInfo("player")
         channel = name ~= nil
+        cast_id = nil
     end
     if name and start_ms and end_ms and end_ms > start_ms then
+        -- a new cast: remember where it was meant to end, to show pushback
+        local id = (cast_id or name) .. (channel and ":c" or "")
+        if not cast.active or cast.id ~= id then cast.id, cast.first_end = id, end_ms end
         cast.active, cast.result, cast.name = true, nil, name
         local frac = (now - start_ms / 1000) / ((end_ms - start_ms) / 1000)
         frac = math.min(math.max(frac, 0), 1)
@@ -608,12 +657,16 @@ extras.CastUpdate = function()
         if s.show_cast_text then
             f.spell_text_center:SetText(name)
             f.spell_bar_text:SetText(addon_data.utils.FormatTime(end_ms / 1000 - now, true))
+            local delay = (end_ms - cast.first_end) / 1000
+            local push = PushbackText(f, s)
+            if math.abs(delay) >= 0.05 then push:SetText(string.format("%+.1f", delay)) else push:SetText("") end
         else
             HideCastText(f)
         end
         f:SetAlpha(1)
         return
     end
+    if f.wst_push then f.wst_push:SetText("") end
     if cast.active then
         cast.active = false
         cast.end_time = now

@@ -635,6 +635,7 @@ local function CoreFrame_OnUpdate(self, elapsed)
     addon_data.hunter.OnUpdate(elapsed)
 	addon_data.castbar.OnUpdate(elapsed)
     if addon_data.core.preview then addon_data.options.ShowPreview() end
+    addon_data.extras.ApplyRangeAlpha()
     addon_data.extras.Stack()
 end
 

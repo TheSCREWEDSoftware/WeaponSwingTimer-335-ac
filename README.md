@@ -61,6 +61,8 @@ On the **Profiles** page, under the profile controls: copy the code from the exp
 - **Combine spell cast and ranged bars** into one block with one border, like the main / off hand rows.
 - **Ranged and spell cast bars use your bar's size** (on by default): same width, row height and font as your swing bar.
 - **Spell cast bar for all spells** (on by default): every cast and channel with name and time left, a green/red result, and the game's own cast bar hidden (can be turned off). With it off, the bar works like the original (Hunter shots only).
+- **Spell cast bar text** matches the other bars: same font size, spell name on the left, and a red pushback value (e.g. `+0.5`) left of the time when damage delays your cast.
+- **Fully visible while the target is in range** (off by default, per bar): your bar and the target bar while the target is in melee range, the shot bar while it's in Auto Shot / wand range.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
 - **Readable bar colours**: the shot bar defaults to green and the cast/GCD colour is a darker orange, so the white text stays readable; bar text has a shadow.
@@ -92,6 +94,7 @@ Taken from the original author's own WotLK work and from open pull requests on t
 - **Aimed Shot is instant** and no longer resets the Auto Shot timer – from watchyoursixx's `wotlk-master` branch.
 - **Off-hand starts half a swing late** when auto-attack begins – by Treeston, [LeftHandedGlove PR #27](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/27).
 - **Haste changes only rescale a running swing** – by Treeston, [LeftHandedGlove PR #26](https://github.com/LeftHandedGlove/WeaponSwingTimerAddon/pull/26).
+- **Wand / shot bar fixes**: the first shot uses your current ranged speed, missed shots still restart the timer, and the time never goes below 0.
 - **No divide-by-zero on a zero ranged base speed** – by Matthew Carlis, [SixxFix PR #48](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/pull/48).
 
 ### Changes needed for 3.3.5a

@@ -129,6 +129,8 @@ local function Merge(a, b) for k, v in pairs(b) do a[k] = v end return a end
 local function MeleeGroup(section, name, order, who)
     local args = {
         enabled = Toggle(section, "enabled", T("Enable"), T("Shows " .. who .. " swing bars."), 1),
+        in_range = Toggle("extras", "range_" .. section, T("Fully visible while the target is in range"),
+            T("While your target is in melee range, this bar and its border are fully visible instead of using the alpha below."), 8, { width = "full" }),
         show_offhand = Toggle(section, "show_offhand", T("Show Off-Hand"), T("Shows the off-hand swing bar when dual wielding."), 2),
         show_border = Toggle(section, "show_border", T("Show border"), nil, 3),
         classic_bars = Toggle(section, "classic_bars", T("Classic bars"), T("Uses the classic bar texture and the spark at the end of the fill."), 4),
@@ -172,6 +174,8 @@ local function ShotGroup()
         one_bar = Toggle("hunter", "one_bar", T("YaHT / One bar"), T("Changes the Auto Shot bar to a single bar that fills from left to right"), 4),
         show_text = Toggle("hunter", "show_text", T("Show Text"), nil, 5),
         show_autoshot_delay_timer = Toggle("hunter", "show_autoshot_delay_timer", T("Auto Shot delay timer"), T("Shows a timer that represents when Auto shot is delayed."), 6),
+        in_range = Toggle("extras", "range_hunter", T("Fully visible while the target is in range"),
+            T("While your target is in Auto Shot / wand range, this bar and its border are fully visible instead of using the alpha below."), 7, { width = "full" }),
         color_header = Header(T("Colours"), 30),
         cooldown = Color("hunter", "cooldown", T("Auto Shot Cooldown Color"), nil, 31),
     }

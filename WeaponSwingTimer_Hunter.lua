@@ -295,6 +295,12 @@ addon_data.hunter.OnCombatLogUnfiltered = function(combat_info)
     local _, event, _, casterID, _, _, _, _, _, _, _, spellID = unpack(combat_info)
 
 	if casterID == UnitGUID("player") then
+		if (event == "RANGE_DAMAGE" or event == "RANGE_MISSED")
+		   and (addon_data.hunter.is_spell_auto_shot(spellID) or addon_data.hunter.is_spell_shoot(spellID))
+		   and GetTime() - addon_data.hunter.last_shot_time > 0.5 then
+			addon_data.hunter.ShotFired()
+			return
+		end
 	
 		if event == "SPELL_CAST_START" then
 		
@@ -332,37 +338,24 @@ addon_data.hunter.OnUnitSpellCastSucceeded = function(unit, spell_id)
 				return
 			end
             if addon_data.hunter.is_spell_auto_shot(spell_id) or addon_data.hunter.is_spell_shoot(spell_id) then
-				addon_data.hunter.FeignFullReset = false
-                addon_data.hunter.last_shot_time = GetTime()
-                addon_data.hunter.ResetShotTimer()
-				addon_data.hunter.casting_auto = false
-			--else 
-                --addon_data.hunter.casting_auto = false
+				addon_data.hunter.ShotFired()
             end
-			if addon_data.hunter.is_spell_shoot(spell_id) then
-				local new_range_speed, _, _, _, _, _ = UnitRangedDamage("player")
-				addon_data.hunter.range_speed = new_range_speed
-			end
         end
 
-		if addon_data.hunter.is_spell_auto_shot(spell_id) then	-- Update the ranged attack speed
-			local new_range_speed, _, _, _, _, _ = UnitRangedDamage("player")
-
-			-- Handling for getting haste buffs in combat, don't need to update auto shot cast time until the next shot is ready
-			if new_range_speed ~= addon_data.hunter.range_speed then
-				if not addon_data.hunter.auto_shot_ready then
-					addon_data.hunter.shot_timer = addon_data.hunter.shot_timer * 
-											(new_range_speed / addon_data.hunter.range_speed)
-				end
-                
-				if not new_range_speed or new_range_speed == 0 then
-                    new_range_speed = addon_data.hunter.range_speed or 1
-                end
-                addon_data.hunter.range_speed = new_range_speed
-				addon_data.hunter.range_auto_speed_modified = addon_data.hunter.range_cast_speed_modifer
-			end
-		end
     end
+end
+
+-- A shot (Auto Shot or wand Shoot) went off: start the next countdown at the current speed
+addon_data.hunter.ShotFired = function()
+    local speed = UnitRangedDamage("player")
+    if speed and speed > 0 then
+        addon_data.hunter.range_speed = speed
+        addon_data.hunter.range_auto_speed_modified = addon_data.hunter.range_cast_speed_modifer
+    end
+    addon_data.hunter.FeignFullReset = false
+    addon_data.hunter.last_shot_time = GetTime()
+    addon_data.hunter.ResetShotTimer()
+    addon_data.hunter.casting_auto = false
 end
 
 addon_data.hunter.OnUnitSpellCastInterrupted = function(unit, spell_id)

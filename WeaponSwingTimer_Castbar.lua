@@ -452,7 +452,9 @@ addon_data.castbar.UpdateVisualsOnSettingsChange = function()
 
 		frame.spell_bar:SetTexture(settings.classic_bars and addon_data.GetBarTexture() or (addon_data.media .. "Background"))
         frame.spell_spark:SetSize(16, settings.height)
-        frame.spell_text_center:SetPoint("TOP", 2, -(settings.height / 2) + (settings.fontsize / 2))
+        -- spell name on the left, like the swing bars' labels
+        frame.spell_text_center:ClearAllPoints()
+        frame.spell_text_center:SetPoint("TOPLEFT", 2, -(settings.height / 2) + (settings.fontsize / 2))
 		frame.spell_text_center:SetFont(addon_data.GetBarFont(), settings.fontsize)
 		
 		frame.cast_latency:SetHeight(settings.height)
