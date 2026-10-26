@@ -795,7 +795,10 @@ local function OnAddonLoaded(self)
         target  = addon_data.target.default_settings,
         castbar = addon_data.castbar.default_settings,
         extras  = addon_data.extras.default_settings,
-        }
+        },
+    global = {
+        minimap = { hide = false, angle = 200 },
+        },
     }
     -- initialize profiles Ace3 database
     addon_data.core.InitDB()
@@ -870,6 +873,10 @@ SLASH_WEAPONSWINGTIMER_CONFIG1 = "/WeaponSwingTimer"
 SLASH_WEAPONSWINGTIMER_CONFIG2 = "/weaponswingtimer"
 SLASH_WEAPONSWINGTIMER_CONFIG3 = "/wst"
 SlashCmdList["WEAPONSWINGTIMER_CONFIG"] = function(option)
+    if option and option:lower():match("^%s*test%s*$") then
+        addon_data.options.SetPreview(not addon_data.core.preview)
+        return
+    end
     addon_data.compat.OpenOptions(addon_data.config.config_parent_panel)
 end
 

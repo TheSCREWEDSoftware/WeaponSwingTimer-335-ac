@@ -34,11 +34,11 @@ In WotLK Auto Shot has no cast time, so there is no red 'casting' section to sta
 1. Copy the `WeaponSwingTimer-335-ac` folder into `World of Warcraft\Interface\AddOns\`.
 2. It should look like `Interface\AddOns\WeaponSwingTimer-335-ac\WeaponSwingTimer-335-ac.toc`.
 3. Fully restart the game (a `/reload` does not pick up new image files).
-4. Type `/wst` in game to open the options.
+4. Type `/wst` in game (or left-click the minimap button) to open the options. `/wst test` (or right-click the minimap button) shows/hides all bars for positioning.
 
 ## Options
 Interface Options → AddOns → **WeaponSwingTimer**. The page opens on the general settings, with a collapsible tree of categories (the same layout as SimpleUnitFrames):
-- **WeaponSwingTimer**: lock all bars, **Show all bars** (shows every bar so you can drag it into place, until you close the options), **Only show bars available for this class**, welcome message, and which classes the bars show on.
+- **WeaponSwingTimer**: lock all bars, **Show all bars** (shows every bar with a sample fill so you can drag it into place; stays on until you turn it off), **Only show bars available for this class**, **Show minimap button**, welcome message, and which classes the bars show on.
 - **Melee Settings** → Player bar, Target bar
 - **Ranged Settings** → Shot bar, Spell cast bar
 - **Extras** → Appearance, Swing bar colours, New swing background, Experimental
@@ -53,7 +53,8 @@ Profiles → **Export / Import**. Copy the code from the export box to share you
 - **Default profile**: every character uses the shared "Default" profile and your changes are saved to it. Other profiles can still be created, copied and selected under *Profiles*.
 - **Show on classes**: choose which classes the bars appear on (all ticked by default).
 - **Only show bars available for this class** (on by default): the shot bar shows for Hunters, and for Mages, Priests and Warlocks with a wand; the spell cast bar shows for Hunters. Both are hidden when no ranged weapon is equipped. Untick to allow them on any class.
-- **Show all bars** button for positioning every bar.
+- **Show all bars** for positioning every bar (button, `/wst test`, or right-click the minimap button).
+- **Minimap button** (can be hidden in the options; drag to move).
 - **Profile export / import** codes.
 - **Options window** rebuilt with Ace3 (AceConfig/AceGUI) as a collapsible tree.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.

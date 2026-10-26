@@ -444,8 +444,7 @@ local function ClassValues()
         local name = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]) or class
         local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         if c then
-            local function lift(v) return math.floor((v + (1 - v) * 0.35) * 255) end
-            name = string.format("|cff%02x%02x%02x%s|r", lift(c.r), lift(c.g), lift(c.b), name)
+            name = string.format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, name)
         end
         values[class] = name
     end
@@ -469,11 +468,20 @@ function options.Build()
             preview = {
                 type = "execute", order = 3.5,
                 name = function() return addon_data.core.preview and T("Hide test bars") or T("Show all bars") end,
-                desc = T("Shows every bar so you can drag it into place, even without a target, cast or ranged weapon. Turns off when you close the options."),
+                desc = T("Shows every bar so you can drag it into place, even without a target, cast or ranged weapon. Stays on until you turn it off (also /wst test or right-click the minimap button)."),
                 func = function() options.SetPreview(not addon_data.core.preview) end,
             },
             only_class_bars = Toggle("core", "only_class_bars", T("Only show bars available for this class"),
                 T("Shot bar: Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: Hunters. Untick to allow them on any class."), 4.5, { width = "full" }),
+            minimap = {
+                type = "toggle", name = T("Show minimap button"), order = 4.7,
+                desc = T("Left-click opens the options, right-click shows/hides all bars, drag to move."),
+                get = function() return not addon_data.db.global.minimap.hide end,
+                set = function(_, value)
+                    addon_data.db.global.minimap.hide = not value
+                    if options.minimap_button then options.minimap_button.Refresh() end
+                end,
+            },
             welcome_message = Toggle("core", "welcome_message", T("Welcome Message"), T("Displays the welcome message upon login/reload. Uncheck to disable."), 4),
             classes = {
                 type = "multiselect", name = T("Show on classes"), order = 5,
@@ -523,14 +531,20 @@ end
 addon_data.config.UpdateConfigValues = options.NotifyChange
 addon_data.extras.UpdateConfigPanelValues = options.NotifyChange
 
--- "Show all bars": every bar visible for positioning
+-- "Show all bars": every bar visible for positioning, until turned off
 function options.SetPreview(on)
     addon_data.core.preview = on and true or false
     addon_data.core.UpdateAllVisualsOnSettingsChange()
+    if options.minimap_button then options.minimap_button.UpdateTooltip() end
     local registry = LibStub("AceConfigRegistry-3.0", true)
     if registry then registry:NotifyChange(APP) end
+    addon_data.utils.PrintMsg(addon_data.core.preview
+        and T("Showing all bars. Drag them while bars are unlocked; /wst test or the minimap button (right-click) turns this off.")
+        or T("Test bars off."))
 end
 
+-- Bars with nothing live to show get a sample fill and a label
+local SAMPLE = 0.6
 function options.ShowPreview()
     for _, module in ipairs({ addon_data.player, addon_data.target, addon_data.hunter, addon_data.castbar }) do
         local frame = module.frame
@@ -539,14 +553,91 @@ function options.ShowPreview()
             frame:SetAlpha(1)
         end
     end
-    local cast = addon_data.castbar.frame
-    if cast and not addon_data.castbar.casting_shot then
-        cast.spell_text_center:SetText(T("Spell cast bar"))
+    local t, ts = addon_data.target.frame, character_target_settings
+    if t and not UnitExists("target") then
+        t:SetHeight(ts.height)
+        t.main_bar:SetWidth(ts.width * SAMPLE)
+        t.main_bar:Show()
+        t.main_spark:Hide()
+        t.main_left_text:SetText(T("Target"))
+        t.main_right_text:SetText("")
     end
-    local target = addon_data.target.frame
-    if target and not UnitExists("target") then
-        target.main_left_text:SetText(T("Target"))
+    local h, hs = addon_data.hunter.frame, character_hunter_settings
+    if h and not addon_data.hunter.shooting then
+        h.shot_bar:Show()
+        h.shot_bar:SetWidth(hs.width * SAMPLE)
+        h.shot_bar_text:SetText(T("Shot bar"))
     end
+    local c, cs = addon_data.castbar.frame, character_castbar_settings
+    if c and not addon_data.castbar.casting_shot then
+        c.spell_bar:SetWidth(cs.width * SAMPLE)
+        c.spell_bar:SetVertexColor(0.8, 0.64, 0, 1)
+        c.spell_text_center:SetText(T("Spell cast bar"))
+        c.spell_bar_text:SetText("")
+    end
+end
+
+-- Minimap button: left-click options, right-click test bars, drag to move
+function options.CreateMinimapButton()
+    local settings = addon_data.db.global.minimap
+    local b = CreateFrame("Button", "WeaponSwingTimerMinimapButton", Minimap)
+    b:SetFrameStrata("MEDIUM")
+    b:SetFrameLevel(8)
+    b:SetSize(31, 31)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:RegisterForDrag("LeftButton")
+    b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    local icon = b:CreateTexture(nil, "BACKGROUND")
+    icon:SetSize(20, 20)
+    icon:SetTexture("Interface\\Icons\\INV_Sword_04")
+    icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+    icon:SetPoint("TOPLEFT", 7, -5)
+    local border = b:CreateTexture(nil, "OVERLAY")
+    border:SetSize(53, 53)
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    border:SetPoint("TOPLEFT")
+
+    local function Place()
+        local a = math.rad(settings.angle or 200)
+        b:ClearAllPoints()
+        b:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * 80, math.sin(a) * 80)
+    end
+    local function Drag()
+        local mx, my = Minimap:GetCenter()
+        local px, py = GetCursorPosition()
+        local scale = Minimap:GetEffectiveScale()
+        settings.angle = math.deg(math.atan2(py / scale - my, px / scale - mx))
+        Place()
+    end
+    b:SetScript("OnDragStart", function(self) self:SetScript("OnUpdate", Drag) end)
+    b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+    b:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then
+            options.SetPreview(not addon_data.core.preview)
+        else
+            addon_data.compat.OpenOptions(addon_data.config.config_parent_panel)
+        end
+    end)
+    function b.UpdateTooltip()
+        if GameTooltip:GetOwner() ~= b then return end
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine(APP)
+        GameTooltip:AddLine(T("Left-click: options"), 1, 1, 1)
+        GameTooltip:AddLine(addon_data.core.preview and T("Right-click: hide test bars") or T("Right-click: show all bars"), 1, 1, 1)
+        GameTooltip:AddLine(T("Drag: move this button"), 1, 1, 1)
+        GameTooltip:Show()
+    end
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        b.UpdateTooltip()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    function b.Refresh()
+        if settings.hide then b:Hide() else Place(); b:Show() end
+    end
+    options.minimap_button = b
+    b.Refresh()
 end
 
 -- Called once at load (from Config.InitializeVisuals)
@@ -554,9 +645,5 @@ function options.Register()
     LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable(APP, options.Build)
     local panel = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(APP, APP)
     addon_data.config.config_parent_panel = panel
-    if InterfaceOptionsFrame then
-        InterfaceOptionsFrame:HookScript("OnHide", function()
-            if addon_data.core.preview then options.SetPreview(false) end
-        end)
-    end
+    options.CreateMinimapButton()
 end
