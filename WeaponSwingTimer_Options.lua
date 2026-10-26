@@ -534,6 +534,8 @@ addon_data.extras.UpdateConfigPanelValues = options.NotifyChange
 -- "Show all bars": every bar visible for positioning, until turned off
 function options.SetPreview(on)
     addon_data.core.preview = on and true or false
+    local label = addon_data.hunter.frame and addon_data.hunter.frame.wst_preview_label
+    if label and not addon_data.core.preview then label:Hide() end
     addon_data.core.UpdateAllVisualsOnSettingsChange()
     if options.minimap_button then options.minimap_button.UpdateTooltip() end
     local registry = LibStub("AceConfigRegistry-3.0", true)
@@ -543,8 +545,33 @@ function options.SetPreview(on)
         or T("Test bars off."))
 end
 
--- Bars with nothing live to show get a sample fill and a label
+-- Preview: every row shown and labelled; rows with nothing live get a sample fill
 local SAMPLE = 0.6
+local function PreviewMelee(module, settings, who, live)
+    local f = module.frame
+    if not live then
+        f.main_bar:SetWidth(settings.width * SAMPLE)
+        f.main_bar:Show()
+        f.main_spark:Hide()
+        f.main_right_text:SetText("")
+    end
+    f.main_left_text:SetText(who .. " " .. T("Main-Hand"))
+    f.main_left_text:Show()
+    -- off-hand row even when not dual wielding
+    if not (live and module.has_offhand) then
+        f.off_bar:SetWidth(settings.width * SAMPLE * 0.7)
+        f.off_spark:Hide()
+        f.off_right_text:SetText("")
+    end
+    f.off_bar:Show()
+    f.off_left_text:SetText(who .. " " .. T("Off-Hand"))
+    f.off_left_text:Show()
+    f.off_right_text:Show()
+    if not character_extras_settings.vertical then
+        f:SetHeight(settings.height * 2 + 2)
+    end
+end
+
 function options.ShowPreview()
     for _, module in ipairs({ addon_data.player, addon_data.target, addon_data.hunter, addon_data.castbar }) do
         local frame = module.frame
@@ -553,26 +580,34 @@ function options.ShowPreview()
             frame:SetAlpha(1)
         end
     end
-    local t, ts = addon_data.target.frame, character_target_settings
-    if t and not UnitExists("target") then
-        t:SetHeight(ts.height)
-        t.main_bar:SetWidth(ts.width * SAMPLE)
-        t.main_bar:Show()
-        t.main_spark:Hide()
-        t.main_left_text:SetText(T("Target"))
-        t.main_right_text:SetText("")
-    end
+    PreviewMelee(addon_data.player, character_player_settings, T("(Self)"), true)
+    PreviewMelee(addon_data.target, character_target_settings, T("(Target)"), UnitExists("target"))
+
     local h, hs = addon_data.hunter.frame, character_hunter_settings
-    if h and not addon_data.hunter.shooting then
-        h.shot_bar:Show()
-        h.shot_bar:SetWidth(hs.width * SAMPLE)
-        h.shot_bar_text:SetText(T("Shot bar"))
+    if not h.wst_preview_label then
+        h.wst_preview_label = h:CreateFontString(nil, "OVERLAY")
+        h.wst_preview_label:SetJustifyH("LEFT")
+        h.wst_preview_label:SetShadowOffset(1, -1)
     end
+    local label = h.wst_preview_label
+    label:SetFont(addon_data.GetBarFont(), hs.fontsize)
+    label:ClearAllPoints()
+    label:SetPoint("LEFT", h, "LEFT", 2, 0)
+    label:SetText(T("(Self) Ranged"))
+    label:Show()
+    if not addon_data.hunter.shooting then
+        -- the two-bar shot bar shrinks towards the middle; keep the sample clear of the label
+        h.shot_bar:Show()
+        h.shot_bar:SetWidth(hs.width * (hs.one_bar and SAMPLE or 0.3))
+        h.shot_bar_text:SetText("")
+    end
+
     local c, cs = addon_data.castbar.frame, character_castbar_settings
-    if c and not addon_data.castbar.casting_shot then
+    if not addon_data.castbar.casting_shot then
         c.spell_bar:SetWidth(cs.width * SAMPLE)
         c.spell_bar:SetVertexColor(0.8, 0.64, 0, 1)
-        c.spell_text_center:SetText(T("Spell cast bar"))
+        c.spell_text_center:SetText(T("(Self) Spell cast bar"))
+        c.spell_text_center:Show()
         c.spell_bar_text:SetText("")
     end
 end
