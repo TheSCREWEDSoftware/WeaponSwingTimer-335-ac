@@ -261,7 +261,7 @@ addon_data.player.UpdateVisualsOnUpdate = function()
         end
         -- Update the main bars text
         frame.main_left_text:SetText(L["Main-Hand"])
-        frame.main_right_text:SetText(tostring(addon_data.utils.SimpleRound(main_timer, 0.1)))
+        frame.main_right_text:SetText(addon_data.utils.FormatTime(main_timer))
         -- Update the off hand bar
         if addon_data.player.has_offhand and settings.show_offhand then
             frame.off_bar:Show()
@@ -295,7 +295,7 @@ addon_data.player.UpdateVisualsOnUpdate = function()
             end
             -- Update the off-hand bar's text
             frame.off_left_text:SetText(L["Off-Hand"])
-            frame.off_right_text:SetText(tostring(addon_data.utils.SimpleRound(off_timer, 0.1)))
+            frame.off_right_text:SetText(addon_data.utils.FormatTime(off_timer))
         else
             frame.off_bar:Hide()
             frame.off_left_text:Hide()

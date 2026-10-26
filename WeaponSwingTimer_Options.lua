@@ -180,6 +180,13 @@ local function ExtrasGroup()
                 type = "group", name = T("Appearance"), order = 1,
                 args = {
                     font = MediaSelect("font", T("Font"), 1),
+                    timer_decimals = {
+                        type = "select", name = T("Timer decimals"), order = 1.5,
+                        desc = T("How the time left is written on the bars."),
+                        values = { [1] = "1.3", [2] = "1.25" },
+                        get = function() return P("extras").timer_decimals end,
+                        set = function(_, value) P("extras").timer_decimals = value; Refresh() end,
+                    },
                     bar_texture = MediaSelect("bar_texture", T("Bar texture"), 2),
                     border = MediaSelect("border", T("Border"), 3, T("Used when Show border is on.")),
                     vertical = Toggle("extras", "vertical", T("Vertical bars"), T("Player and target bars fill from bottom to top."), 4, { width = "full" }),
@@ -467,12 +474,14 @@ function options.Build()
             },
             preview = {
                 type = "execute", order = 3.5,
-                name = function() return addon_data.core.preview and T("Hide test bars") or T("Show all bars") end,
-                desc = T("Shows every bar so you can drag it into place, even without a target, cast or ranged weapon. Stays on until you turn it off (also /wst test or right-click the minimap button)."),
+                name = function() return addon_data.core.preview and T("Hide test bars") or T("Show test bars") end,
+                desc = T("Shows the bars with sample values so you can drag them into place, even without a target, cast or ranged weapon. Stays on until you turn it off (also /wst test or right-click the minimap button)."),
                 func = function() options.SetPreview(not addon_data.core.preview) end,
             },
-            only_class_bars = Toggle("core", "only_class_bars", T("Only show bars available for this class"),
-                T("Shot bar: Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: Hunters. Untick to allow them on any class."), 4.5, { width = "full" }),
+            preview_possible_only = Toggle("core", "preview_possible_only", T("Test bars: only show bars this character can use"),
+                T("Leaves out the shot bar for classes without Auto Shot or a wand, the spell cast bar for non-Hunters, and your off-hand row for classes that can't dual wield."), 3.6, { width = "full" }),
+            only_class_bars = Toggle("core", "only_class_bars", T("Hide ranged bars this class can't use"),
+                T("Shot bar: only Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: only Hunters. Untick to allow them on any class."), 4.5, { width = "full" }),
             minimap = {
                 type = "toggle", name = T("Show minimap button"), order = 4.7,
                 desc = T("Left-click opens the options, right-click shows/hides all bars, drag to move."),
@@ -545,43 +554,64 @@ function options.SetPreview(on)
         or T("Test bars off."))
 end
 
--- Preview: every row shown and labelled; rows with nothing live get a sample fill
+-- Test bars: every row labelled with a sample fill from the left in its own colour
 local SAMPLE = 0.6
-local function PreviewMelee(module, settings, who, live)
+local DUAL_WIELD = { WARRIOR = true, ROGUE = true, HUNTER = true, SHAMAN = true, DEATHKNIGHT = true }
+local RANGED = { HUNTER = true, MAGE = true, PRIEST = true, WARLOCK = true }
+
+local function Sample(bar, width, fraction)
+    bar:ClearAllPoints()
+    bar:SetWidth(math.max(width * fraction, 0.001))
+    bar:Show()
+end
+
+local function PreviewMelee(module, s, who, show_off)
     local f = module.frame
-    if not live then
-        f.main_bar:SetWidth(settings.width * SAMPLE)
-        f.main_bar:Show()
-        f.main_spark:Hide()
-        f.main_right_text:SetText("")
-    end
+    if character_extras_settings.vertical then return end  -- vertical bars keep their live layout
+    local speed = (module.main_weapon_speed and module.main_weapon_speed > 0) and module.main_weapon_speed or 2.6
+    Sample(f.main_bar, s.width, SAMPLE)
+    f.main_bar:SetPoint("TOPLEFT", 0, 0)
+    f.main_bar:SetVertexColor(s.main_r, s.main_g, s.main_b, s.main_a)
+    f.main_spark:Hide()
     f.main_left_text:SetText(who .. " " .. T("Main-Hand"))
+    f.main_right_text:SetText(addon_data.utils.FormatTime(speed * (1 - SAMPLE)))
     f.main_left_text:Show()
-    -- off-hand row even when not dual wielding
-    if not (live and module.has_offhand) then
-        f.off_bar:SetWidth(settings.width * SAMPLE * 0.7)
+    f.main_right_text:Show()
+    if show_off then
+        Sample(f.off_bar, s.width, SAMPLE * 0.7)
+        f.off_bar:SetPoint("BOTTOMLEFT", 0, 0)
+        f.off_bar:SetVertexColor(s.off_r, s.off_g, s.off_b, s.off_a)
         f.off_spark:Hide()
-        f.off_right_text:SetText("")
+        f.off_left_text:SetText(who .. " " .. T("Off-Hand"))
+        f.off_right_text:SetText(addon_data.utils.FormatTime(speed * (1 - SAMPLE * 0.7)))
+        f.off_left_text:Show()
+        f.off_right_text:Show()
+    else
+        f.off_bar:Hide()
+        f.off_left_text:Hide()
+        f.off_right_text:Hide()
     end
-    f.off_bar:Show()
-    f.off_left_text:SetText(who .. " " .. T("Off-Hand"))
-    f.off_left_text:Show()
-    f.off_right_text:Show()
     if not character_extras_settings.vertical then
-        f:SetHeight(settings.height * 2 + 2)
+        f:SetHeight(show_off and (s.height * 2 + 2) or s.height)
     end
 end
 
 function options.ShowPreview()
-    for _, module in ipairs({ addon_data.player, addon_data.target, addon_data.hunter, addon_data.castbar }) do
+    local _, class = UnitClass("player")
+    local possible_only = P("core").preview_possible_only
+    local show = {
+        player = true, target = true,
+        hunter = not possible_only or RANGED[class],
+        castbar = not possible_only or class == "HUNTER",
+    }
+    for key, module in pairs({ player = addon_data.player, target = addon_data.target, hunter = addon_data.hunter, castbar = addon_data.castbar }) do
         local frame = module.frame
         if frame then
-            frame:Show()
-            frame:SetAlpha(1)
+            if show[key] then frame:Show(); frame:SetAlpha(1) else frame:Hide() end
         end
     end
-    PreviewMelee(addon_data.player, character_player_settings, T("(Self)"), true)
-    PreviewMelee(addon_data.target, character_target_settings, T("(Target)"), UnitExists("target"))
+    PreviewMelee(addon_data.player, character_player_settings, T("(Self)"), not possible_only or DUAL_WIELD[class])
+    PreviewMelee(addon_data.target, character_target_settings, T("(Target)"), true)
 
     local h, hs = addon_data.hunter.frame, character_hunter_settings
     if not h.wst_preview_label then
@@ -595,21 +625,21 @@ function options.ShowPreview()
     label:SetPoint("LEFT", h, "LEFT", 2, 0)
     label:SetText(T("(Self) Ranged"))
     label:Show()
-    if not addon_data.hunter.shooting then
-        -- the two-bar shot bar shrinks towards the middle; keep the sample clear of the label
-        h.shot_bar:Show()
-        h.shot_bar:SetWidth(hs.width * (hs.one_bar and SAMPLE or 0.3))
-        h.shot_bar_text:SetText("")
-    end
+    Sample(h.shot_bar, hs.width, SAMPLE)
+    h.shot_bar:SetPoint("BOTTOMLEFT", 0, 0)
+    h.shot_bar:SetVertexColor(hs.cooldown_r, hs.cooldown_g, hs.cooldown_b, hs.cooldown_a)
+    local range_speed = addon_data.hunter.range_speed or 3
+    h.shot_bar_text:SetText(addon_data.utils.FormatTime(range_speed * (1 - SAMPLE)))
 
     local c, cs = addon_data.castbar.frame, character_castbar_settings
-    if not addon_data.castbar.casting_shot then
-        c.spell_bar:SetWidth(cs.width * SAMPLE)
-        c.spell_bar:SetVertexColor(0.8, 0.64, 0, 1)
-        c.spell_text_center:SetText(T("(Self) Spell cast bar"))
-        c.spell_text_center:Show()
-        c.spell_bar_text:SetText("")
-    end
+    Sample(c.spell_bar, cs.width, SAMPLE)
+    c.spell_bar:SetPoint("TOPLEFT", 0, 0)
+    c.spell_bar:SetVertexColor(0.7, 0.4, 0, 1)
+    c.spell_spark:Hide()
+    c.spell_text_center:SetText(T("(Self) Spell cast bar"))
+    c.spell_text_center:Show()
+    c.spell_bar_text:SetText(addon_data.utils.FormatTime(1.5 * (1 - SAMPLE), true))
+    c.spell_bar_text:Show()
 end
 
 -- Minimap button: left-click options, right-click test bars, drag to move
@@ -681,4 +711,14 @@ function options.Register()
     local panel = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(APP, APP)
     addon_data.config.config_parent_panel = panel
     options.CreateMinimapButton()
+    for _, module in ipairs({ addon_data.player, addon_data.target, addon_data.hunter, addon_data.castbar }) do
+        for _, key in ipairs({ "main_left_text", "main_right_text", "off_left_text", "off_right_text",
+                               "shot_bar_text", "spell_bar_text", "spell_text_center" }) do
+            local text = module.frame and module.frame[key]
+            if text then
+                text:SetShadowOffset(1, -1)
+                text:SetShadowColor(0, 0, 0, 1)
+            end
+        end
+    end
 end

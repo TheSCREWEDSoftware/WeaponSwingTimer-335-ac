@@ -70,7 +70,7 @@ addon_data.hunter.default_settings = {
     show_border = true,
     classic_bars = true,
     one_bar = false,
-    cooldown_r = 0.95, cooldown_g = 0.95, cooldown_b = 0.95, cooldown_a = 1.0,
+    cooldown_r = 0.15, cooldown_g = 0.6, cooldown_b = 0.15, cooldown_a = 1.0,
 }
 -- Shot bar: Auto Shot / wand classes with a ranged weapon equipped
 local ranged_classes = { HUNTER = true, MAGE = true, PRIEST = true, WARLOCK = true }
@@ -400,7 +400,7 @@ addon_data.hunter.UpdateVisualsOnUpdate = function()
     local new_width = 0
 	
 	if settings.enabled then
-        frame.shot_bar_text:SetText(tostring(addon_data.utils.SimpleRound(shot_timer, 0.1)))
+        frame.shot_bar_text:SetText(addon_data.utils.FormatTime(shot_timer))
         if addon_data.core.in_combat or addon_data.hunter.shooting or addon_data.hunter.casting_shot then
             frame:SetAlpha(settings.in_combat_alpha)
         else
@@ -408,7 +408,7 @@ addon_data.hunter.UpdateVisualsOnUpdate = function()
         end
         if not settings.one_bar then
                 if addon_data.hunter.spell_GCD > 0.5 then
-					frame.shot_bar:SetVertexColor(0.8, 0.64, 0, 1)
+					frame.shot_bar:SetVertexColor(0.7, 0.4, 0, 1)
 				else
 					frame.shot_bar:SetVertexColor(settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
 				end
@@ -422,7 +422,7 @@ addon_data.hunter.UpdateVisualsOnUpdate = function()
             end
         else
 		    if addon_data.hunter.spell_GCD > 0.2 then
-				frame.shot_bar:SetVertexColor(0.8, 0.64, 0, 1)
+				frame.shot_bar:SetVertexColor(0.7, 0.4, 0, 1)
 			else
 				frame.shot_bar:SetVertexColor(settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
 			end

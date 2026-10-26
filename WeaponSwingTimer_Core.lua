@@ -25,6 +25,7 @@ addon_data.core.default_settings = {
     one_frame = false,
 	welcome_message = true,
     only_class_bars = true,
+    preview_possible_only = false,
     enabled_classes = {
         WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true,
         DEATHKNIGHT = true, SHAMAN = true, MAGE = true, WARLOCK = true, DRUID = true,

@@ -373,10 +373,9 @@ addon_data.castbar.UpdateVisualsOnUpdate = function()
     if addon_data.core.in_combat or addon_data.castbar.casting_shot then
 		if addon_data.castbar.casting_shot then
 			addon_data.castbar.cast_end_time = nil
-			local time_left = math.max(addon_data.utils.SimpleRound(addon_data.castbar.cast_time - addon_data.castbar.cast_timer, 0.1), 0)
-			frame.spell_bar_text:SetText(string.format("%.1f", time_left))
+			frame.spell_bar_text:SetText(addon_data.utils.FormatTime(addon_data.castbar.cast_time - addon_data.castbar.cast_timer, true))
 			frame:SetAlpha(1)
-			frame.spell_bar:SetVertexColor(0.8, 0.64, 0, 1)
+			frame.spell_bar:SetVertexColor(0.7, 0.4, 0, 1)
 			new_width = settings.width * (addon_data.castbar.cast_timer / addon_data.castbar.cast_time)
 			new_width = math.min(new_width, settings.width)
 			frame.spell_bar:SetWidth(new_width)

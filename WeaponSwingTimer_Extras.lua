@@ -9,6 +9,7 @@ local function T(text) return (L and L[text]) or text end
 
 extras.default_settings = {
     font = "default",
+    timer_decimals = 1,
     bar_texture = "default",
     border = "default",
     vertical = false,
