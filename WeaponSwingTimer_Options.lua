@@ -99,11 +99,18 @@ local ALPHA = { isPercent = true }
 
 -- Size, position and transparency for one bar
 local function Layout(section, base, with_ooc)
+    local matched = nil
+    if section == "hunter" or section == "castbar" then
+        matched = {
+            disabled = function() return P("extras").match_sizes end,
+            desc = T("Follows your bar while \"Ranged and spell cast bars use your bar's size\" is on (Extras > Layout)."),
+        }
+    end
     local args = {
         layout_header = Header(T("Size and position"), base),
-        width = Range(section, "width", T("Bar Width"), nil, 50, 1000, 1, base + 1),
-        height = Range(section, "height", T("Bar Height"), nil, 4, 100, 1, base + 2),
-        fontsize = Range(section, "fontsize", T("Font Size"), nil, 6, 32, 1, base + 3),
+        width = Range(section, "width", T("Bar Width"), nil, 50, 1000, 1, base + 1, matched),
+        height = Range(section, "height", T("Bar Height"), nil, 4, 100, 1, base + 2, matched),
+        fontsize = Range(section, "fontsize", T("Font Size"), nil, 6, 32, 1, base + 3, matched),
         x_offset = Range(section, "x_offset", T("X Offset"), T("Horizontal position from the screen centre. You can also drag the bar while bars are unlocked."), -2000, 2000, 1, base + 4),
         y_offset = Range(section, "y_offset", T("Y Offset"), T("Vertical position from the screen centre. You can also drag the bar while bars are unlocked."), -2000, 2000, 1, base + 5),
         alpha_header = Header(T("Transparency"), base + 10),
@@ -147,8 +154,9 @@ local function ShotIsInstant(spell_id)
 end
 local function ShotToggle(key, name, spell_id, order)
     return Toggle("castbar", key, name, nil, order, {
-        disabled = function() return ShotIsInstant(spell_id) end,
+        disabled = function() return P("castbar").all_spells or ShotIsInstant(spell_id) end,
         desc = function()
+            if P("castbar").all_spells then return T("Only used when \"Show all my spell casts\" is off.") end
             if ShotIsInstant(spell_id) then return T("Instant cast on this client, so there is no cast bar.") end
             return T("Shows the cast bar for this shot.")
         end,
@@ -172,12 +180,18 @@ end
 
 local function CastGroup()
     local args = {
-        info = Text(CC(T("Hunters only: a cast bar for shots with a cast time, such as Steady Shot. Normal spells use the game's own cast bar.")), 0),
+        info = Text(T("Shows your casts and channels with the spell name and time left."), 0),
         enabled = Toggle("castbar", "enabled", T("Enable"), nil, 1),
+        all_spells = Toggle("castbar", "all_spells", T("Show all my spell casts"),
+            CC(T("Off: only Hunter shots with a cast time, like the original addon.")), 1.1),
+        hide_blizzard = Toggle("castbar", "hide_blizzard", T("Hide the game's own cast bar"),
+            T("While this bar shows all your casts."), 1.2,
+            { disabled = function() return not P("castbar").all_spells end }),
+        classic_bars = Toggle("castbar", "classic_bars", T("Classic bars"), nil, 1.3),
         show_border = Toggle("castbar", "show_border", T("Show border"), nil, 2),
         show_cast_text = Toggle("castbar", "show_cast_text", T("Show Cast Text"), nil, 3),
         show_latency_bars = Toggle("castbar", "show_latency_bars", T("Latency bar"), T("Shows a bar that represents latency on cast bar."), 4),
-        shots_header = Header(T("Shots"), 5),
+        shots_header = Header(CC(T("Hunter shots (when not showing all casts)")), 5),
         show_multishot_cast_bar = ShotToggle("show_multishot_cast_bar", T("Multi-Shot cast bar"), 2643, 6),
         show_aimedshot_cast_bar = ShotToggle("show_aimedshot_cast_bar", T("Aimed Shot cast bar"), 19434, 7),
         show_steadyshot_cast_bar = ShotToggle("show_steadyshot_cast_bar", T("Steady Shot cast bar"), 34120, 8),
@@ -199,6 +213,29 @@ local function MediaSelect(kind, name, order, desc)
     }
 end
 
+local STACK_NAMES = { hunter = "Ranged", castbar = "Spell cast bar", target = "Target", player = "You" }
+local function OrderSelect(i)
+    return {
+        type = "select", name = string.format(T("Position %d"), i), order = 10 + i,
+        values = function()
+            local v = {}
+            for key, name in pairs(STACK_NAMES) do v[key] = T(name) end
+            return v
+        end,
+        get = function() return addon_data.extras.StackOrder()[i] end,
+        set = function(_, key)
+            local order = addon_data.extras.StackOrder()
+            for j, k in ipairs(order) do
+                if k == key then order[j] = order[i] end
+            end
+            order[i] = key
+            P("extras").stack_order = table.concat(order, ",")
+            Refresh()
+        end,
+        disabled = function() return not P("extras").stack_bars end,
+    }
+end
+
 local function ExtrasGroup()
     local half = { width = "half" }
     return {
@@ -208,9 +245,24 @@ local function ExtrasGroup()
             layout = {
                 type = "group", name = T("Layout"), order = 0.5,
                 args = {
-                    info = Text(T("Stack, from the bottom up: Ranged, Spell cast bar, Target (off hand under main hand), You (off hand under main hand). Bars that are hidden drop out and the rest close the gap. Drag any bar (with bars unlocked) to move the whole stack."), 0),
+                    info = Text(T("Bars are lined up in the order below. Hidden bars drop out and the rest close the gap. Drag any bar (with bars unlocked) to move the whole line."), 0),
                     stack_bars = Toggle("extras", "stack_bars", T("Stack bars"), T("While on, the X/Y offsets of each bar are not used."), 1, { width = "full" }),
-                    stack_gap = Range("extras", "stack_gap", T("Gap between bars"), nil, 0, 60, 1, 2),
+                    stack_dir = {
+                        type = "select", name = T("Direction"), order = 2,
+                        values = { up = T("Upwards (position 1 at the bottom)"), down = T("Downwards (position 1 at the top)"),
+                                   right = T("Left to right"), left = T("Right to left") },
+                        get = function() return P("extras").stack_dir end,
+                        set = function(_, v) P("extras").stack_dir = v; Refresh() end,
+                        disabled = function() return not P("extras").stack_bars end,
+                    },
+                    stack_gap = Range("extras", "stack_gap", T("Gap between bars"), nil, 0, 60, 1, 3,
+                        { disabled = function() return not P("extras").stack_bars end }),
+                    order_header = Header(T("Order"), 10),
+                    order1 = OrderSelect(1), order2 = OrderSelect(2), order3 = OrderSelect(3), order4 = OrderSelect(4),
+                    combine_ranged = Toggle("extras", "combine_ranged", T("Combine spell cast and ranged bars"),
+                        T("One block with one border, the spell cast bar on the ranged bar, like your main and off hand."), 20, { width = "full" }),
+                    match_sizes = Toggle("extras", "match_sizes", T("Ranged and spell cast bars use your bar's size"),
+                        T("Same width, row height and font as your main-hand / off-hand bar."), 21, { width = "full" }),
                 },
             },
             appearance = {
@@ -516,7 +568,7 @@ function options.Build()
                 func = function() options.SetPreview(not addon_data.core.preview) end,
             },
             preview_possible_only = Toggle("core", "preview_possible_only", T("Test bars: only show bars this character can use"),
-                CC(T("Leaves out the shot bar for classes without Auto Shot or a wand, the spell cast bar for non-Hunters, and your off-hand row for classes that can't dual wield.")), 3.6, { width = "full" }),
+                CC(T("Leaves out the shot bar for classes without Auto Shot or a wand, the Hunter-only spell cast bar for other classes, and your off-hand row for classes that can't dual wield.")), 3.6, { width = "full" }),
             only_class_bars = Toggle("core", "only_class_bars", T("Hide ranged bars this class can't use"),
                 CC(T("Shot bar: only Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: only Hunters. Untick to allow them on any class.")), 4.5, { width = "full" }),
             minimap = {
@@ -643,7 +695,7 @@ function options.ShowPreview()
     local show = {
         player = true, target = true,
         hunter = not possible_only or RANGED[class],
-        castbar = not possible_only or class == "HUNTER",
+        castbar = not possible_only or P("castbar").all_spells or class == "HUNTER",
     }
     for key, module in pairs({ player = addon_data.player, target = addon_data.target, hunter = addon_data.hunter, castbar = addon_data.castbar }) do
         local frame = module.frame

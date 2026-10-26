@@ -12,6 +12,10 @@ extras.default_settings = {
     timer_decimals = 1,
     stack_bars = true,
     stack_gap = 20,
+    stack_dir = "up",
+    stack_order = "hunter,castbar,target,player",
+    combine_ranged = false,
+    match_sizes = true,
     stack_init = false,
     stack_x = 0,
     stack_y = -276,
@@ -358,6 +362,13 @@ extras.Install = function()
         orig_target_settings(...)
     end
 
+    local castbar = addon_data.castbar
+    local orig_cast_update = castbar.OnUpdate
+    castbar.OnUpdate = function(...)
+        if character_castbar_settings.all_spells then return extras.CastUpdate(...) end
+        return orig_cast_update(...)
+    end
+
     local orig_reset_main = player.ResetMainSwingTimer
     player.ResetMainSwingTimer = function(...)
         extras.swing_started.player_main = GetTime()
@@ -407,31 +418,122 @@ cast_frame:SetScript("OnEvent", function(self, event, unit, spell)
     end
 end)
 
--- Stack: bottom to top Ranged, Spell cast, Target, Self; hidden bars collapse
-local function StackFrames()
-    return { addon_data.hunter.frame, addon_data.castbar.frame, addon_data.target.frame, addon_data.player.frame }
+-- Ranged and spell cast bars use your bar's width, row height and font
+extras.SyncSizes = function()
+    local ex, p = S(), character_player_settings
+    if not (ex.match_sizes and p) then return end
+    for _, s in ipairs({ character_hunter_settings, character_castbar_settings }) do
+        if s then s.width, s.height, s.fontsize = p.width, p.height, p.fontsize end
+    end
 end
 
--- First use: start the stack where the shot bar sits now
-local function InitStack(ex)
-    local hs = character_hunter_settings
-    if hs and hs.point == "CENTER" and hs.rel_point == "CENTER" then
-        ex.stack_x = hs.x_offset or 0
-        ex.stack_y = (hs.y_offset or -260) - (hs.height or 12) / 2
+-- Stack: bars in a line (order and direction from the settings); hidden bars collapse.
+-- With "combine", the spell cast bar sits on the ranged bar inside one border.
+local MODULES = { hunter = "hunter", castbar = "castbar", target = "target", player = "player" }
+extras.STACK_KEYS = { "hunter", "castbar", "target", "player" }
+
+extras.StackOrder = function()
+    local order, seen = {}, {}
+    for key in tostring(S().stack_order):gmatch("[%a]+") do
+        if MODULES[key] and not seen[key] then order[#order + 1] = key; seen[key] = true end
     end
-    ex.stack_init = true
+    for _, key in ipairs(extras.STACK_KEYS) do
+        if not seen[key] then order[#order + 1] = key end
+    end
+    return order
+end
+
+-- Items to lay out: { frames = {...bottom row first}, w, h }
+local function StackItems()
+    local ex = S()
+    local h, c = addon_data.hunter.frame, addon_data.castbar.frame
+    local combine = ex.combine_ranged and h:IsShown() and c:IsShown()
+    local items = {}
+    for _, key in ipairs(extras.StackOrder()) do
+        local frame = addon_data[MODULES[key]].frame
+        if combine and (key == "hunter" or key == "castbar") then
+            if not items.combined then
+                items.combined = true
+                items[#items + 1] = { frames = { h, c }, w = math.max(h:GetWidth() or 0, c:GetWidth() or 0),
+                                      h = (h:GetHeight() or 0) + 2 + (c:GetHeight() or 0) }
+            end
+        elseif frame and frame:IsShown() then
+            items[#items + 1] = { frames = { frame }, w = frame:GetWidth() or 0, h = frame:GetHeight() or 0 }
+        end
+    end
+    return items, combine
+end
+
+-- Merge or split the ranged / spell cast borders
+local function ApplyCombined(on)
+    local h, c = addon_data.hunter.frame, addon_data.castbar.frame
+    if extras.combined == on then
+        if on then
+            local a = math.max(h:GetAlpha(), c:GetAlpha())
+            h:SetAlpha(a); c:SetAlpha(a)
+        end
+        return
+    end
+    extras.combined = on
+    h.backplane:ClearAllPoints()
+    if on then
+        h.backplane:SetPoint("TOPLEFT", c, "TOPLEFT", -9, 9)
+        h.backplane:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", 9, -9)
+        c.backplane:Hide()
+    else
+        h.backplane:SetPoint("TOPLEFT", -9, 9)
+        h.backplane:SetPoint("BOTTOMRIGHT", 9, -9)
+        c.backplane:Show()
+    end
+end
+
+local function Axis(dir) return (dir == "left" or dir == "right") and "x" or "y" end
+local function Sign(dir) return (dir == "up" or dir == "right") and 1 or -1 end
+
+-- Centre of each item along the stack, starting from (stack_x, stack_y)
+local function ItemCentres(items)
+    local ex = S()
+    local dir = ex.stack_dir or "up"
+    local pos, centres = 0, {}
+    for i, item in ipairs(items) do
+        local size = (Axis(dir) == "y") and item.h or item.w
+        local mid = pos + size / 2
+        if Axis(dir) == "y" then
+            centres[i] = { ex.stack_x, ex.stack_y + Sign(dir) * mid }
+        else
+            centres[i] = { ex.stack_x + Sign(dir) * mid, ex.stack_y }
+        end
+        pos = pos + size + ex.stack_gap
+    end
+    return centres
 end
 
 extras.Stack = function()
     local ex = S()
-    if not ex.stack_bars or ex.vertical or extras.stack_dragging then return end
-    if not ex.stack_init then InitStack(ex) end
-    local y = ex.stack_y
-    for _, frame in ipairs(StackFrames()) do
-        if frame and frame:IsShown() then
+    if not ex.stack_bars or ex.vertical then
+        ApplyCombined(false)
+        return
+    end
+    if not ex.stack_init then
+        local hs = character_hunter_settings
+        if hs and hs.point == "CENTER" and hs.rel_point == "CENTER" then
+            ex.stack_x = hs.x_offset or 0
+            ex.stack_y = (hs.y_offset or -260) - (hs.height or 12) / 2
+        end
+        ex.stack_init = true
+    end
+    local items, combine = StackItems()
+    ApplyCombined(combine)
+    if extras.stack_dragging then return end
+    local centres = ItemCentres(items)
+    for i, item in ipairs(items) do
+        local cx, cy = centres[i][1], centres[i][2]
+        local bottom = cy - item.h / 2
+        for _, frame in ipairs(item.frames) do
+            local fh = frame:GetHeight() or 0
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOM", UIParent, "CENTER", ex.stack_x, y)
-            y = y + (frame:GetHeight() or 0) + ex.stack_gap
+            frame:SetPoint("CENTER", UIParent, "CENTER", cx, bottom + fh / 2)
+            bottom = bottom + fh + 2
         end
     end
 end
@@ -441,24 +543,135 @@ local function OnStackDragStop(dropped)
     extras.stack_dragging = false
     local ex = S()
     if not ex.stack_bars or ex.vertical then return end
-    local below = 0
-    for _, frame in ipairs(StackFrames()) do
-        if frame == dropped then break end
-        if frame and frame:IsShown() then below = below + (frame:GetHeight() or 0) + ex.stack_gap end
-    end
-    local cx = dropped:GetCenter()
-    local bottom = dropped:GetBottom()
-    if cx and bottom then
-        ex.stack_x = math.floor(cx - UIParent:GetWidth() / 2 + 0.5)
-        ex.stack_y = math.floor(bottom - UIParent:GetHeight() / 2 - below + 0.5)
-        ex.stack_init = true
+    local items = StackItems()
+    local centres = ItemCentres(items)
+    local fx, fy = dropped:GetCenter()
+    if not fx then return end
+    fx, fy = fx - UIParent:GetWidth() / 2, fy - UIParent:GetHeight() / 2
+    for i, item in ipairs(items) do
+        local bottom = centres[i][2] - item.h / 2
+        for _, frame in ipairs(item.frames) do
+            local fh = frame:GetHeight() or 0
+            if frame == dropped then
+                -- shift the start point by how far this bar moved
+                ex.stack_x = math.floor(ex.stack_x + (fx - centres[i][1]) + 0.5)
+                ex.stack_y = math.floor(ex.stack_y + (fy - (bottom + fh / 2)) + 0.5)
+                ex.stack_init = true
+                return
+            end
+            bottom = bottom + fh + 2
+        end
     end
 end
 
 extras.HookStackDragging = function()
-    for _, frame in ipairs(StackFrames()) do
+    for _, key in ipairs(extras.STACK_KEYS) do
+        local frame = addon_data[MODULES[key]].frame
         frame:HookScript("OnDragStart", function() extras.stack_dragging = true end)
         frame:HookScript("OnDragStop", function(self) OnStackDragStop(self) end)
+    end
+end
+
+-- Spell cast bar for every cast and channel (UnitCastingInfo / UnitChannelInfo)
+local cast = { active = false }
+extras.cast_state = cast
+
+local function HideCastText(f)
+    f.spell_text_center:SetText("")
+    f.spell_bar_text:SetText("")
+end
+
+extras.CastUpdate = function()
+    local s, f = character_castbar_settings, addon_data.castbar.frame
+    if not s.enabled then f:Hide() return end
+    if not f:IsShown() then addon_data.castbar.UpdateVisualsOnSettingsChange() end
+    f:SetSize(s.width, s.height)
+    f.cast_latency:Hide()
+    local now = GetTime()
+    local name, _, _, _, start_ms, end_ms = UnitCastingInfo("player")
+    local channel = false
+    if not name then
+        name, _, _, _, start_ms, end_ms = UnitChannelInfo("player")
+        channel = name ~= nil
+    end
+    if name and start_ms and end_ms and end_ms > start_ms then
+        cast.active, cast.result, cast.name = true, nil, name
+        local frac = (now - start_ms / 1000) / ((end_ms - start_ms) / 1000)
+        frac = math.min(math.max(frac, 0), 1)
+        if channel then frac = 1 - frac end
+        local width = s.width * frac
+        f.spell_bar:SetWidth(math.max(width, 0.001))
+        if channel then f.spell_bar:SetVertexColor(0.25, 0.5, 0.85, 1) else f.spell_bar:SetVertexColor(0.7, 0.4, 0, 1) end
+        f.spell_spark:ClearAllPoints()
+        f.spell_spark:SetPoint("TOPLEFT", width - 8, 0)
+        if s.classic_bars and frac > 0 and frac < 1 then f.spell_spark:Show() else f.spell_spark:Hide() end
+        if s.show_cast_text then
+            f.spell_text_center:SetText(name)
+            f.spell_bar_text:SetText(addon_data.utils.FormatTime(end_ms / 1000 - now, true))
+        else
+            HideCastText(f)
+        end
+        f:SetAlpha(1)
+        return
+    end
+    if cast.active then
+        cast.active = false
+        cast.end_time = now
+        cast.result = cast.result or "done"
+    end
+    f.spell_spark:Hide()
+    if cast.end_time and now - cast.end_time < 0.6 then
+        -- result: shown and hidden in one step
+        f.spell_bar:SetWidth(s.width)
+        if cast.result == "done" then
+            f.spell_bar:SetVertexColor(0, 0.5, 0, 1)
+            if s.show_cast_text then f.spell_text_center:SetText(cast.name or "") end
+        else
+            f.spell_bar:SetVertexColor(0.7, 0, 0, 1)
+            if s.show_cast_text then f.spell_text_center:SetText(cast.result == "interrupted" and L["Interrupted"] or L["Failed"]) end
+        end
+        f.spell_bar_text:SetText("")
+        f:SetAlpha(1)
+        return
+    end
+    -- idle: placeholder only while the options are open and bars are unlocked
+    f.spell_bar:SetVertexColor(0.2, 0.2, 0.2, 1)
+    f.spell_bar:SetWidth(s.width)
+    local options_open = InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown()
+    if not s.is_locked and options_open then
+        f.spell_text_center:SetText(L["Spell Bar Unlocked"])
+        f.spell_bar_text:SetText("")
+        f:SetAlpha(1)
+    else
+        HideCastText(f)
+        f:SetAlpha(0)
+    end
+end
+
+local cast_events = CreateFrame("Frame")
+for _, e in ipairs({ "UNIT_SPELLCAST_SUCCEEDED", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED",
+                     "UNIT_SPELLCAST_CHANNEL_STOP" }) do
+    cast_events:RegisterEvent(e)
+end
+cast_events:SetScript("OnEvent", function(self, event, unit)
+    if unit ~= "player" or not cast.active then return end
+    if event == "UNIT_SPELLCAST_INTERRUPTED" then cast.result = "interrupted"
+    elseif event == "UNIT_SPELLCAST_FAILED" then cast.result = "failed"
+    elseif not cast.result then cast.result = "done" end
+end)
+
+-- The game's own cast bar: hidden while ours shows every cast
+extras.ApplyBlizzardCastBar = function()
+    local s = character_castbar_settings
+    if not CastingBarFrame or not s then return end
+    local hide = s.enabled and s.all_spells and s.hide_blizzard
+    if hide and not extras.blizzard_hidden then
+        CastingBarFrame:UnregisterAllEvents()
+        CastingBarFrame:Hide()
+        extras.blizzard_hidden = true
+    elseif not hide and extras.blizzard_hidden then
+        if CastingBarFrame_OnLoad then CastingBarFrame_OnLoad(CastingBarFrame, "player", true) end
+        extras.blizzard_hidden = false
     end
 end
 

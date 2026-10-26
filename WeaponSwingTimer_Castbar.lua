@@ -73,7 +73,10 @@ addon_data.castbar.default_settings = {
     show_steadyshot_cast_bar = true,
     show_latency_bars = false,
     show_border = true,
-    is_locked = false
+    is_locked = false,
+    classic_bars = true,
+    all_spells = true,
+    hide_blizzard = true
 }
 --- Initializing variables for calculations and function calls
 
@@ -215,6 +218,7 @@ end
 -- Hunters with a ranged weapon
 addon_data.castbar.IsRelevant = function()
     if addon_data.core.preview then return true end
+    if character_castbar_settings and character_castbar_settings.all_spells then return true end
     if character_core_settings and character_core_settings.only_class_bars == false then return true end
     local _, class = UnitClass("player")
     return class == "HUNTER" and GetInventoryItemID("player", INVSLOT_RANGED or 18) ~= nil
@@ -222,7 +226,7 @@ end
 
 addon_data.castbar.OnUpdate = function(elapsed)
     local settings = character_castbar_settings
-    local any_bar = settings.show_multishot_cast_bar or settings.show_aimedshot_cast_bar or settings.show_steadyshot_cast_bar
+    local any_bar = settings.all_spells or settings.show_multishot_cast_bar or settings.show_aimedshot_cast_bar or settings.show_steadyshot_cast_bar
     if not (settings.enabled and any_bar and addon_data.castbar.IsRelevant()) then
         addon_data.castbar.frame:Hide()
         return
@@ -430,7 +434,7 @@ end
 addon_data.castbar.UpdateVisualsOnSettingsChange = function()
     local settings = character_castbar_settings
     local frame = addon_data.castbar.frame
-	if settings.enabled and (settings.show_multishot_cast_bar or settings.show_aimedshot_cast_bar or settings.show_steadyshot_cast_bar) and addon_data.castbar.IsRelevant() then
+	if settings.enabled and (settings.all_spells or settings.show_multishot_cast_bar or settings.show_aimedshot_cast_bar or settings.show_steadyshot_cast_bar) and addon_data.castbar.IsRelevant() then
         frame:EnableMouse(not settings.is_locked)
         frame:Show()
         frame:ClearAllPoints()
@@ -445,7 +449,7 @@ addon_data.castbar.UpdateVisualsOnSettingsChange = function()
         frame.spell_bar:SetPoint("TOPLEFT", 0, 0)
         frame.spell_bar:SetHeight(settings.height)
 
-		frame.spell_bar:SetTexture(addon_data.media .. "Background")
+		frame.spell_bar:SetTexture(settings.classic_bars and addon_data.GetBarTexture() or (addon_data.media .. "Background"))
         frame.spell_spark:SetSize(16, settings.height)
         frame.spell_text_center:SetPoint("TOP", 2, -(settings.height / 2) + (settings.fontsize / 2))
 		frame.spell_text_center:SetFont(addon_data.GetBarFont(), settings.fontsize)

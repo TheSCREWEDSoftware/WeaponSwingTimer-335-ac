@@ -57,7 +57,10 @@ On the **Profiles** page, under the profile controls: copy the code from the exp
 - **Minimap button** (can be hidden in the options; drag to move).
 - **Profile export / import** codes.
 - **Options window** rebuilt with Ace3 (AceConfig/AceGUI) as a collapsible tree; class names in the option text use their class colours.
-- **Stacked bars** (Extras → Layout, on by default): from the bottom up Ranged, Spell cast bar, Target, You. Hidden bars drop out and the rest close the gap; drag any bar to move the whole stack.
+- **Stacked bars** (Extras → Layout, on by default): bars lined up in a chosen order (Position 1–4) and direction (upwards, downwards, left to right, right to left); default from the bottom up Ranged, Spell cast bar, Target, You. Hidden bars drop out and the rest close the gap; drag any bar to move the whole line.
+- **Combine spell cast and ranged bars** into one block with one border, like the main / off hand rows.
+- **Ranged and spell cast bars use your bar's size** (on by default): same width, row height and font as your swing bar.
+- **Spell cast bar for all spells** (on by default): every cast and channel with name and time left, a green/red result, and the game's own cast bar hidden (can be turned off). With it off, the bar works like the original (Hunter shots only).
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
 - **Readable bar colours**: the shot bar defaults to green and the cast/GCD colour is a darker orange, so the white text stays readable; bar text has a shadow.

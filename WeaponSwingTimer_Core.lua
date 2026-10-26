@@ -593,6 +593,8 @@ end
 
 
 addon_data.core.UpdateAllVisualsOnSettingsChange = function()
+    addon_data.extras.SyncSizes()
+    addon_data.extras.ApplyBlizzardCastBar()
     addon_data.player.UpdateVisualsOnSettingsChange()
     addon_data.target.UpdateVisualsOnSettingsChange()
     addon_data.hunter.UpdateVisualsOnSettingsChange()
@@ -817,9 +819,11 @@ local function OnAddonLoaded(self)
     }
     -- initialize profiles Ace3 database
     addon_data.core.InitDB()
-    LoadAllSettings()          
+    LoadAllSettings()
+    addon_data.extras.SyncSizes()
     InitializeAllVisuals()
     addon_data.core.visuals_initialized = true
+    addon_data.extras.ApplyBlizzardCastBar()
 
     -- Now that visuals are initialized, attach the OnUpdate script
     addon_data.core.core_frame:SetScript("OnUpdate", CoreFrame_OnUpdate)
