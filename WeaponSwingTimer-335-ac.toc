@@ -1,6 +1,6 @@
 ## Interface: 30300
-## Title: WeaponSwingTimer |cff00ffb0(3.3.5a)|r
-## Notes: Tracks swing times for melee weapons, Hunter's Auto Shot, and wand's Shoot. Wrath 3.3.5a (12340) backport of WeaponSwingTimer-SixxFix by WatchYourSixx.
+## Title: WeaponSwingTimer
+## Notes: Tracks swing times for melee weapons, Hunter's Auto Shot, and wand's Shoot. 3.3.5a (12340) backport made for AzerothCore, based on WeaponSwingTimer-SixxFix by WatchYourSixx.
 ## Notes-deDE: Zeichnet die Schwungzeiten für Nahkampfwaffen auf. Hunters Auto Shot und Wands Shoot.
 ## Notes-esES: Rastrea los tiempos de swing de las armas cuerpo a cuerpo Hunters Auto Shot y las varitas Shoot.
 ## Notes-esMX: Rastrea los tiempos de swing de las armas cuerpo a cuerpo Hunters Auto Shot y las varitas Shoot.
@@ -19,6 +19,9 @@ Libs\Ace3\LibStub\LibStub.lua
 Libs\Ace3\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\Ace3\AceDB-3.0\AceDB-3.0.lua
 Libs\Ace3\AceEvent-3.0\AceEvent-3.0.lua
+Libs\Ace3\AceGUI-3.0\AceGUI-3.0.xml
+Libs\Ace3\AceConfig-3.0\AceConfig-3.0.xml
+Libs\Ace3\AceDBOptions-3.0\AceDBOptions-3.0.xml
 
 localization.lua
 WeaponSwingTimer_Compat.lua
@@ -30,4 +33,5 @@ WeaponSwingTimer_Castbar.lua
 WeaponSwingTimer_Hunter.lua
 WeaponSwingTimer_Extras.lua
 WeaponSwingTimer_Config.lua
+WeaponSwingTimer_Options.lua
 WeaponSwingTimer_Core.lua

@@ -1,21 +1,4 @@
---[[
-    WeaponSwingTimer-335-ac : Extras
-    Opt-in features requested on the original projects' issue trackers. Everything here is OFF by
-    default, so with default settings the bars look and behave exactly like the backport.
-
-    - Colour while Heroic Strike / Cleave / Maul / Raptor Strike / Rune Strike is queued  (SixxFix #11)
-    - Leading / trailing dead-zone colouring    (SixxFix #21; logic from maldon, LeftHandedGlove PR #22)
-    - Slam marker                               (SixxFix #12)
-    - Flash when a swing lands                  (SixxFix #19)
-    - Colour when attack speed changes mid-swing(LeftHandedGlove #18)
-    - Vertical bars                             (SixxFix #18)
-    - Font / bar texture / border choice        (SixxFix #14, #5)
-    - WeaponSwingTimer_GetSwing() for macros     (LeftHandedGlove #13)
-    - Reset the swing after a cast (experimental)(LeftHandedGlove #19)
-
-    The original modules are not edited for these: their update functions are wrapped, and the
-    extras are applied after the original drawing code has run.
-]]
+-- Optional features (all off by default). Wraps the bar modules instead of editing them.
 local addon_name, addon_data = ...
 local L = addon_data.localization_table
 
@@ -37,7 +20,6 @@ extras.default_settings = {
     deadzone_r = 1.0, deadzone_g = 0.4, deadzone_b = 0.0, deadzone_a = 1.0,
     slam_marker = false,
     slam_r = 1.0, slam_g = 1.0, slam_b = 1.0, slam_a = 0.9,
-    swing_flash = false,  -- old single setting, no longer used
     hl_player_main = false, hl_player_main_r = 1.0, hl_player_main_g = 1.0, hl_player_main_b = 1.0, hl_player_main_a = 0.35,
     hl_player_off = false,  hl_player_off_r = 1.0,  hl_player_off_g = 1.0,  hl_player_off_b = 1.0,  hl_player_off_a = 0.35,
     hl_target_main = false, hl_target_main_r = 1.0, hl_target_main_g = 1.0, hl_target_main_b = 1.0, hl_target_main_a = 0.35,
@@ -56,21 +38,20 @@ extras.LoadSettings = function()
             character_extras_settings[setting] = value
         end
     end
-    -- New-swing highlights start unticked. Earlier builds carried the old "flash" option over to
-    -- them; undo that once so every profile starts with all four off.
-    if not character_extras_settings.hl_reset_v1 then
-        character_extras_settings.swing_flash = false
+    -- one-time (per account): untick highlights an earlier build ticked, drop old keys
+    local global = addon_data.db.global
+    if not global.hl_reset_v1 then
         character_extras_settings.hl_player_main = false
         character_extras_settings.hl_player_off = false
         character_extras_settings.hl_target_main = false
         character_extras_settings.hl_target_off = false
-        character_extras_settings.hl_reset_v1 = true
+        global.hl_reset_v1 = true
     end
+    character_extras_settings.swing_flash = nil
+    character_extras_settings.hl_reset_v1 = nil
 end
 
---[[------------------------------------------------------------------------------------------
-    Media: fonts, bar textures and borders (built-in; plus LibSharedMedia if another addon has it)
---------------------------------------------------------------------------------------------]]
+-- Media: fonts, bar textures, borders
 extras.media = {
     font = {
         { key = "default",  name = "Friz Quadrata (default)", path = "Fonts\\FRIZQT__.TTF" },
@@ -93,7 +74,7 @@ extras.media = {
 
 local lsm_types = { font = "font", bar_texture = "statusbar", border = "border" }
 
--- Adds LibSharedMedia entries (if another addon loaded the library) to a media list.
+-- Built-in media plus LibSharedMedia entries, if another addon loaded it
 local function MediaList(kind)
     local list = {}
     for _, entry in ipairs(extras.media[kind]) do list[#list + 1] = entry end
@@ -121,7 +102,7 @@ local function FindMedia(kind, key)
     return extras.media[kind][1]
 end
 
--- Used by the bar modules at draw time (this file loads after them, before Config/Core)
+-- Used by the bar modules when drawing
 addon_data.GetBarFont = function() return FindMedia("font", S().font).path end
 addon_data.GetBarTexture = function() return FindMedia("bar_texture", S().bar_texture).path end
 addon_data.GetBorderInfo = function()
@@ -129,17 +110,14 @@ addon_data.GetBorderInfo = function()
     return entry.path, entry.size or 12
 end
 
---[[------------------------------------------------------------------------------------------
-    State
---------------------------------------------------------------------------------------------]]
--- when each bar last started a new swing (for the background highlight)
+-- State
+-- When each bar last started a swing (for the background highlight)
 extras.swing_started = { player_main = 0, player_off = 0, target_main = 0, target_off = 0 }
 extras.HIGHLIGHT_TIME = 0.2
 extras.main_hasted = false
 extras.off_hasted = false
 
--- Next-swing abilities whose queued state colours the main-hand bar (names come from the client,
--- so they match any language)
+-- Next-swing abilities (client names, so any language works)
 local queued_names = {}
 for _, id in ipairs({ 78, 845, 6807, 2973, 56815 }) do
     local name = GetSpellInfo(id)
@@ -155,9 +133,7 @@ local function IsNextSwingQueued()
     return false
 end
 
---[[------------------------------------------------------------------------------------------
-    Helpers
---------------------------------------------------------------------------------------------]]
+-- Helpers
 local function FillFraction(timer, speed, fill_empty)
     if not speed or speed == 0 then speed = 2 end
     local frac = 1 - (timer / speed)
@@ -173,7 +149,7 @@ local function EnsureTexture(frame, key, layer)
     return frame[key]
 end
 
--- Spark is a vertical glow line; for vertical bars it is turned 90 degrees.
+-- Turn the spark 90 degrees for vertical bars
 local function SetSparkRotated(spark, rotated)
     if rotated then
         spark:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
@@ -182,7 +158,7 @@ local function SetSparkRotated(spark, rotated)
     end
 end
 
--- Puts a bar back into the original horizontal anchoring before the original code re-anchors it
+-- Undo vertical anchoring before the original code lays the bar out
 local function ClearVerticalLayout(frame, regions)
     if not frame.wst_vertical then return end
     for _, key in ipairs(regions) do
@@ -196,12 +172,10 @@ end
 local melee_regions = {
     "main_bar", "off_bar", "main_spark", "off_spark",
     "main_left_text", "main_right_text", "off_left_text", "off_right_text",
-    "pala_blood_marker", "pala_command_marker", "wst_slam_marker",
+    "wst_slam_marker",
 }
 
---[[------------------------------------------------------------------------------------------
-    Vertical layout (applied after the original update has positioned everything horizontally)
---------------------------------------------------------------------------------------------]]
+-- Vertical layout (applied after the original horizontal layout)
 local function ApplyVertical(unit_data, settings)
     local frame = unit_data.frame
     local two = unit_data.has_offhand and settings.show_offhand
@@ -224,7 +198,7 @@ local function ApplyVertical(unit_data, settings)
         frame.main_spark:Hide()
     end
 
-    -- Text does not rotate on 3.3.5: show the timers above each column, hide the labels
+    -- Text can't rotate on 3.3.5: timers above each column, labels hidden
     frame.main_left_text:Hide()
     frame.main_right_text:ClearAllPoints()
     frame.main_right_text:SetPoint("BOTTOM", frame.main_bar, "BOTTOM", 0, len + 2)
@@ -247,22 +221,9 @@ local function ApplyVertical(unit_data, settings)
         frame.off_right_text:SetPoint("BOTTOM", frame.off_bar, "BOTTOM", 0, len + 2)
     end
 
-    -- Paladin markers: the original code put them at an x offset along the bar
-    for _, key in ipairs({ "pala_blood_marker", "pala_command_marker" }) do
-        local marker = frame[key]
-        if marker and marker:IsShown() then
-            local _, _, _, x = marker:GetPoint(1)
-            local offset = settings.pala_offset or 0
-            marker:ClearAllPoints()
-            marker:SetSize(frame:GetWidth() + 2 * offset, 1)
-            marker:SetPoint("BOTTOMLEFT", -offset, (x or 0) / settings.width * len)
-        end
-    end
 end
 
---[[------------------------------------------------------------------------------------------
-    After each player / target update
---------------------------------------------------------------------------------------------]]
+-- After each player / target update
 local function AfterMeleeUpdate(unit_data, settings, is_player)
     local frame = unit_data.frame
     if not frame or not settings.enabled then return end
@@ -272,8 +233,7 @@ local function AfterMeleeUpdate(unit_data, settings, is_player)
         ApplyVertical(unit_data, settings)
     end
 
-    -- New swing: change the bar's background (behind the fill) for a moment, per bar.
-    -- Shown and hidden in one step, no fade.
+    -- New swing: brief background colour behind the fill, per bar (no fade)
     local who = is_player and "player" or "target"
     for _, hand in ipairs({ "main", "off" }) do
         local key = "hl_" .. who .. "_" .. hand
@@ -363,9 +323,7 @@ local function AfterMeleeUpdate(unit_data, settings, is_player)
     end
 end
 
---[[------------------------------------------------------------------------------------------
-    Wrap the original update functions (applied once the modules exist)
---------------------------------------------------------------------------------------------]]
+-- Wrap the original update functions
 extras.Install = function()
     if extras.installed then return end
     extras.installed = true
@@ -419,9 +377,7 @@ extras.Install = function()
 end
 extras.Install()
 
---[[------------------------------------------------------------------------------------------
-    Reset the swing after a spell cast (experimental, LeftHandedGlove #19)
---------------------------------------------------------------------------------------------]]
+-- Reset the swing after a spell cast (experimental, LeftHandedGlove #19)
 local cast_frame = CreateFrame("Frame")
 cast_frame:RegisterEvent("UNIT_SPELLCAST_START")
 cast_frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
@@ -435,7 +391,7 @@ cast_frame:SetScript("OnEvent", function(self, event, unit, spell)
         local was_cast = extras.cast_in_progress
         extras.cast_in_progress = nil
         if was_cast and S().cast_reset and was_cast ~= slam_name then
-            -- set directly (not via the Reset functions) so it does not count as a swing
+            -- set directly so it doesn't count as a swing
             local p = addon_data.player
             p.main_swing_timer = p.main_weapon_speed
             if p.has_offhand then p.off_swing_timer = p.off_weapon_speed end
@@ -445,11 +401,7 @@ cast_frame:SetScript("OnEvent", function(self, event, unit, spell)
     end
 end)
 
---[[------------------------------------------------------------------------------------------
-    API for macros and other addons (LeftHandedGlove #13)
-    /run print(WeaponSwingTimer_GetSwing("player"))
-    returns: seconds until the next swing, weapon speed
---------------------------------------------------------------------------------------------]]
+-- API for macros and other addons (LeftHandedGlove #13)
 function WeaponSwingTimer_GetSwing(unit, hand)
     local data = (unit == "target") and addon_data.target or addon_data.player
     if hand == "off" then
@@ -457,173 +409,4 @@ function WeaponSwingTimer_GetSwing(unit, hand)
         return data.off_swing_timer, data.off_weapon_speed
     end
     return data.main_swing_timer, data.main_weapon_speed
-end
-
---[[------------------------------------------------------------------------------------------
-    Options page
---------------------------------------------------------------------------------------------]]
-local function MediaDropDown(panel, g_name, kind, label, x, y)
-    local title = addon_data.config.TextFactory(panel, label, 12)
-    title:SetPoint("TOPLEFT", x + 18, y)
-    local dropdown = CreateFrame("Frame", addon_name .. g_name, panel, "UIDropDownMenuTemplate")
-    dropdown:SetPoint("TOPLEFT", x, y - 14)
-    UIDropDownMenu_SetWidth(dropdown, 150)
-    local function Refresh()
-        UIDropDownMenu_SetText(dropdown, FindMedia(kind, S()[kind]).name)
-    end
-    UIDropDownMenu_Initialize(dropdown, function(self, level)
-        local info = UIDropDownMenu_CreateInfo()
-        for _, entry in ipairs(MediaList(kind)) do
-            info.text = entry.name
-            info.value = entry.key
-            info.checked = (S()[kind] == entry.key)
-            info.func = function(button)
-                character_extras_settings[kind] = button.value
-                Refresh()
-                addon_data.core.UpdateAllVisualsOnSettingsChange()
-            end
-            UIDropDownMenu_AddButton(info, level)
-        end
-    end)
-    dropdown.Refresh = Refresh
-    Refresh()
-    return dropdown
-end
-
-local function Toggle(panel, g_name, key, label, tooltip, x, y)
-    local checkbox = addon_data.config.CheckBoxFactory(g_name, panel, label, tooltip, function(self)
-        character_extras_settings[key] = self:GetChecked() and true or false
-        addon_data.core.UpdateAllVisualsOnSettingsChange()
-    end)
-    -- CheckBoxFactory scales checkboxes by 1.1; divide so x/y are real pixels like other widgets
-    checkbox:SetPoint("TOPLEFT", x / 1.1, y / 1.1)
-    checkbox.wst_key = key
-    return checkbox
-end
-
-local function ColorButton(panel, g_name, key, label, x, y)
-    local ex = S()
-    local picker
-    picker = addon_data.config.color_picker_factory(g_name, panel,
-        ex[key .. "_r"], ex[key .. "_g"], ex[key .. "_b"], ex[key .. "_a"], label,
-        function()
-            addon_data.config.ShowColorPicker(character_extras_settings, key, picker.foreground,
-                addon_data.core.UpdateAllVisualsOnSettingsChange)
-        end)
-    picker:SetPoint("TOPLEFT", x, y)
-    picker.wst_key = key
-    return picker
-end
-
-extras.CreateConfigPanel = function(panel)
-    panel.toggles, panel.colors = {}, {}
-    local function add_toggle(...) local c = Toggle(...) table.insert(panel.toggles, c) return c end
-    local function add_color(...) local c = ColorButton(...) table.insert(panel.colors, c) return c end
-
-    local title = addon_data.config.TextFactory(panel, T("Extras"), 20)
-    title:SetPoint("TOPLEFT", 10, -10)
-    title:SetTextColor(1, 0.82, 0, 1)
-    local note = addon_data.config.TextFactory(panel, T("Optional features. Everything here is off by default."), 12)
-    note:SetPoint("TOPLEFT", 10, -36)
-
-    -- Layout (real pixels). Checkbox rows are 26px apart; colour swatches sit on the same row.
-    local ROW = 26
-    local SWATCH_X = 420
-    local function swatch_y(row_y) return row_y - 7 end
-
-    -- Appearance
-    local appearance = addon_data.config.TextFactory(panel, T("Appearance (all bars)"), 16)
-    appearance:SetPoint("TOPLEFT", 10, -62)
-    appearance:SetTextColor(1, 0.82, 0, 1)
-    panel.font_dropdown = MediaDropDown(panel, "ExtrasFontDropDown", "font", T("Font"), 0, -84)
-    panel.texture_dropdown = MediaDropDown(panel, "ExtrasTextureDropDown", "bar_texture", T("Bar texture"), 195, -84)
-    panel.border_dropdown = MediaDropDown(panel, "ExtrasBorderDropDown", "border", T("Border"), 390, -84)
-    add_toggle(panel, "ExtrasVerticalCheckBox", "vertical", T("Vertical bars"),
-        T("Player and target bars fill from bottom to top."), 10, -136)
-
-    -- Player swing bar
-    local player = addon_data.config.TextFactory(panel, T("Player swing bar"), 16)
-    player:SetPoint("TOPLEFT", 10, -172)
-    player:SetTextColor(1, 0.82, 0, 1)
-    local y = -194
-    add_toggle(panel, "ExtrasQueuedCheckBox", "queued_color", T("Colour while a next-swing ability is queued"),
-        T("Heroic Strike, Cleave, Maul, Raptor Strike or Rune Strike."), 10, y)
-    add_color(panel, "ExtrasQueuedColor", "queued", T("Queued colour"), SWATCH_X, swatch_y(y))
-    y = y - ROW
-    add_toggle(panel, "ExtrasHasteCheckBox", "haste_color", T("Colour when attack speed changes mid-swing"),
-        T("For example a Flurry proc. Lasts until the next swing."), 10, y)
-    add_color(panel, "ExtrasHasteColor", "haste", T("Haste colour"), SWATCH_X, swatch_y(y))
-    y = y - ROW
-    add_toggle(panel, "ExtrasSlamCheckBox", "slam_marker", T("Slam marker (Warriors)"),
-        T("Casting Slam after this marker delays your next swing."), 10, y)
-    add_color(panel, "ExtrasSlamColor", "slam", T("Marker colour"), SWATCH_X, swatch_y(y))
-    y = y - ROW
-    add_toggle(panel, "ExtrasDeadzoneCheckBox", "deadzone", T("Dead-zone colouring"),
-        T("Colours the start and end of the swing, e.g. for proc weapons. Set the seconds below."), 10, y)
-    add_color(panel, "ExtrasDeadzoneColor", "deadzone", T("Dead-zone colour"), SWATCH_X, swatch_y(y))
-    -- the edit box titles sit 12px above each box
-    panel.leading_editbox = addon_data.config.EditBoxFactory("ExtrasLeadingEditBox", panel,
-        T("Leading (s)"), 70, 25, function(self)
-            character_extras_settings.leading_deadzone = tonumber(self:GetText()) or 0
-        end)
-    panel.leading_editbox:SetPoint("TOPLEFT", 45, y - 46)
-    panel.trailing_editbox = addon_data.config.EditBoxFactory("ExtrasTrailingEditBox", panel,
-        T("Trailing (s)"), 70, 25, function(self)
-            character_extras_settings.trailing_deadzone = tonumber(self:GetText()) or 0
-        end)
-    panel.trailing_editbox:SetPoint("TOPLEFT", 135, y - 46)
-
-    -- New swing highlight: background change per bar, each with its own colour
-    y = y - 86
-    local highlight = addon_data.config.TextFactory(panel, T("Change bar background when a new swing starts"), 16)
-    highlight:SetPoint("TOPLEFT", 10, y)
-    highlight:SetTextColor(1, 0.82, 0, 1)
-    local hl_tip = T("Briefly changes the background of this bar when its new swing starts.")
-    local hl = {
-        { "hl_player_main", T("Your main hand"),   10,  y - 22 },
-        { "hl_player_off",  T("Your off hand"),    300, y - 22 },
-        { "hl_target_main", T("Target main hand"), 10,  y - 22 - ROW },
-        { "hl_target_off",  T("Target off hand"),  300, y - 22 - ROW },
-    }
-    for _, h in ipairs(hl) do
-        local key, label, hx, hy = h[1], h[2], h[3], h[4]
-        local name = key:gsub("_(%a)", function(c) return c:upper() end)
-        add_toggle(panel, "Extras" .. name .. "CheckBox", key, label, hl_tip, hx, hy)
-        add_color(panel, "Extras" .. name .. "Color", key, "", hx + 180, swatch_y(hy))
-    end
-
-    -- Experimental
-    y = y - 22 - ROW - 40
-    local experimental = addon_data.config.TextFactory(panel, T("Experimental"), 16)
-    experimental:SetPoint("TOPLEFT", 10, y)
-    experimental:SetTextColor(1, 0.82, 0, 1)
-    add_toggle(panel, "ExtrasCastResetCheckBox", "cast_reset", T("Reset swing after a spell cast"),
-        T("Restarts your swing when a spell with a cast time finishes (not Slam). Check it matches your server."),
-        10, y - 22)
-
-    -- API
-    local api = addon_data.config.TextFactory(panel,
-        T("For macros/addons: /run print(WeaponSwingTimer_GetSwing(\"player\")) - also \"target\", \"off\""), 11)
-    api:SetPoint("TOPLEFT", 10, y - 62)
-
-    extras.config_frame = panel
-    extras.UpdateConfigPanelValues()
-end
-
-extras.UpdateConfigPanelValues = function()
-    local panel = extras.config_frame
-    if not panel then return end
-    local ex = S()
-    for _, checkbox in ipairs(panel.toggles) do checkbox:SetChecked(ex[checkbox.wst_key]) end
-    for _, picker in ipairs(panel.colors) do
-        local k = picker.wst_key
-        addon_data.compat.SetColorTexture(picker.foreground, ex[k .. "_r"], ex[k .. "_g"], ex[k .. "_b"], ex[k .. "_a"])
-    end
-    panel.leading_editbox:SetText(tostring(ex.leading_deadzone or 0))
-    panel.leading_editbox:SetCursorPosition(0)
-    panel.trailing_editbox:SetText(tostring(ex.trailing_deadzone or 0))
-    panel.trailing_editbox:SetCursorPosition(0)
-    panel.font_dropdown.Refresh()
-    panel.texture_dropdown.Refresh()
-    panel.border_dropdown.Refresh()
 end

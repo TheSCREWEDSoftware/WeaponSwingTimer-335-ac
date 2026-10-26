@@ -72,10 +72,11 @@ addon_data.hunter.default_settings = {
     one_bar = false,
     cooldown_r = 0.95, cooldown_g = 0.95, cooldown_b = 0.95, cooldown_a = 1.0,
 }
--- The shot bar only makes sense for classes with an auto-repeating ranged attack
--- (Hunter Auto Shot, wand Shoot) and only while a ranged weapon / wand is equipped.
+-- Shot bar: Auto Shot / wand classes with a ranged weapon equipped
 local ranged_classes = { HUNTER = true, MAGE = true, PRIEST = true, WARLOCK = true }
 addon_data.hunter.IsRelevant = function()
+    if addon_data.core.preview then return true end
+    if character_core_settings and character_core_settings.only_class_bars == false then return true end
     local _, class = UnitClass("player")
     return ranged_classes[class] and GetInventoryItemID("player", INVSLOT_RANGED or 18) ~= nil
 end
@@ -84,7 +85,7 @@ end
 addon_data.hunter.shooting = false
 -- added check below for range speed to default 3 on initialize 
 addon_data.hunter.range_speed = 3
--- WotLK: Auto Shot has no cast time (as in watchyoursixx's wotlk-master)
+-- No Auto Shot cast time in WotLK (watchyoursixx's wotlk-master)
 addon_data.hunter.auto_cast_time = 0.01
 addon_data.hunter.shot_timer = 0.01
 addon_data.hunter.last_shot_time = GetTime()
@@ -173,7 +174,7 @@ addon_data.hunter.UpdateRangeCastSpeedModifier = function()
 	else
 		local range_speed, _, _, _, _, _ = UnitRangedDamage("player")
 		-- added case for if range speed returns nil or 0
-		-- also guard a zero base speed (Matthew Carlis, SixxFix PR #48)
+		-- zero base speed guard (Matthew Carlis, SixxFix PR #48)
 		if range_speed == nil or range_speed == 0 or not addon_data.hunter.base_speed or addon_data.hunter.base_speed == 0 then
 			range_speed = 1
             addon_data.hunter.range_cast_speed_modifer = 1
@@ -412,8 +413,7 @@ addon_data.hunter.UpdateVisualsOnUpdate = function()
 					frame.shot_bar:SetVertexColor(settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
 				end
                 new_width = settings.width * (shot_timer / range_speed)
-            -- 3.3.5a backport: when the shot is ready the bar is empty (the original kept a 2px
-            -- sliver in the middle, which showed as a stray line)
+            -- empty when ready (no 2px line in the middle)
             if new_width < 1 then
                 frame.shot_bar:Hide()
             else
@@ -518,290 +518,4 @@ addon_data.hunter.InitializeVisuals = function()
     addon_data.hunter.UpdateVisualsOnSettingsChange()
     addon_data.hunter.UpdateVisualsOnUpdate()
     frame:Show()
-end
-
-
-
---- Everything below is designated as part of the UI settings menu. Checkboxes, adjustments, sliders
---- ------------------------------------------------------------------------------------------------
---- Adjusts the values of everything based on the settings selected with UpdateConfigPanelValues
---- 10 boxes that can be checked, all exact same just with different names
---- Bar height, width, and offset values set with numerical value
---- Color picker selection for 3 visual displays of the bars
---- Alpha adjustments for 3 visual displays of the bars
-addon_data.hunter.UpdateConfigPanelValues = function()
-    local panel = addon_data.hunter.config_frame
-    local settings = character_hunter_settings
-    panel.enabled_checkbox:SetChecked(settings.enabled)
-	panel.show_autoshot_delay_checkbox:SetChecked(settings.show_autoshot_delay_timer)
-    panel.show_border_checkbox:SetChecked(settings.show_border)
-    panel.classic_bars_checkbox:SetChecked(settings.classic_bars)
-    panel.one_bar_checkbox:SetChecked(settings.one_bar)
-    panel.show_text_checkbox:SetChecked(settings.show_text)
-    panel.width_editbox:SetText(tostring(settings.width))
-    panel.width_editbox:SetCursorPosition(0)
-    panel.height_editbox:SetText(tostring(settings.height))
-    panel.height_editbox:SetCursorPosition(0)
-	panel.fontsize_editbox:SetText(tostring(settings.fontsize))
-    panel.fontsize_editbox:SetCursorPosition(0)
-    panel.x_offset_editbox:SetText(tostring(settings.x_offset))
-    panel.x_offset_editbox:SetCursorPosition(0)
-    panel.y_offset_editbox:SetText(tostring(settings.y_offset))
-    panel.y_offset_editbox:SetCursorPosition(0)
-    addon_data.compat.SetColorTexture(panel.cooldown_color_picker.foreground, 
-        settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a)
-        
-    panel.in_combat_alpha_slider:SetValue(settings.in_combat_alpha)
-    panel.in_combat_alpha_slider.editbox:SetCursorPosition(0)
-    panel.ooc_alpha_slider:SetValue(settings.ooc_alpha)
-    panel.ooc_alpha_slider.editbox:SetCursorPosition(0)
-    panel.backplane_alpha_slider:SetValue(settings.backplane_alpha)
-    panel.backplane_alpha_slider.editbox:SetCursorPosition(0)
-end
-
-addon_data.hunter.EnabledCheckBoxOnClick = function(self)
-    character_hunter_settings.enabled = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.ShowAutoShotDelayCheckBoxOnClick = function(self)
-   character_hunter_settings.show_autoshot_delay_timer = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.ShowBorderCheckBoxOnClick = function(self)
-    character_hunter_settings.show_border = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.ClassicBarsCheckBoxOnClick = function(self)
-    character_hunter_settings.classic_bars = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.OneBarCheckBoxOnClick = function(self)
-    character_hunter_settings.one_bar = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-    addon_data.hunter.UpdateConfigPanelValues()
-end
-
-addon_data.hunter.ShowTextCheckBoxOnClick = function(self)
-    character_hunter_settings.show_text = self:GetChecked()
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.WidthEditBoxOnEnter = function(self)
-    character_hunter_settings.width = tonumber(self:GetText())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.HeightEditBoxOnEnter = function(self)
-    character_hunter_settings.height = tonumber(self:GetText())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.FontSizeEditBoxOnEnter = function(self)
-    character_hunter_settings.fontsize = tonumber(self:GetText())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.XOffsetEditBoxOnEnter = function(self)
-    character_hunter_settings.x_offset = tonumber(self:GetText())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.YOffsetEditBoxOnEnter = function(self)
-    character_hunter_settings.y_offset = tonumber(self:GetText())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.CooldownColorPickerOnClick = function()
-    addon_data.config.ShowColorPicker(
-        character_hunter_settings,
-        "cooldown",
-        addon_data.hunter.config_frame.cooldown_color_picker.foreground,
-        addon_data.hunter.UpdateVisualsOnSettingsChange
-    )
-end
-
-addon_data.hunter.CombatAlphaOnValChange = function(self)
-    character_hunter_settings.in_combat_alpha = tonumber(self:GetValue())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.OOCAlphaOnValChange = function(self)
-    character_hunter_settings.ooc_alpha = tonumber(self:GetValue())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.hunter.BackplaneAlphaOnValChange = function(self)
-    character_hunter_settings.backplane_alpha = tonumber(self:GetValue())
-    addon_data.hunter.UpdateVisualsOnSettingsChange()
-end
---- Initializes the main setting panel including layout, alignment, and design
-addon_data.hunter.CreateConfigPanel = function(parent_panel)
-    addon_data.hunter.config_frame = CreateFrame("Frame", addon_name .. "HunterConfigPanel", parent_panel)
-    local panel = addon_data.hunter.config_frame
-    local settings = character_hunter_settings
-    -- Title Text
-    panel.title_text = addon_data.config.TextFactory(panel, L["Hunter & Wand Shot Bar Settings"], 20)
-    panel.title_text:SetPoint("TOPLEFT", 10 , -10)
-    panel.title_text:SetTextColor(1, 0.82, 0, 1)
-    
-    -- General Settings Text
-    panel.general_text = addon_data.config.TextFactory(panel, L["General Settings"], 16)
-    panel.general_text:SetPoint("TOPLEFT", 10 , -50)
-    panel.general_text:SetTextColor(1, 0.82, 0, 1)
-    
-    -- Enabled Checkbox
-    panel.enabled_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterEnabledCheckBox",
-        panel,
-        L["Enable"],
-        L["Enables the Autoshot/Shoot bars."],
-        addon_data.hunter.EnabledCheckBoxOnClick)
-    panel.enabled_checkbox:SetPoint("TOPLEFT", 10, -70)
-    
-    -- Show Border Checkbox
-    panel.show_border_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowBorderCheckBox",
-        panel,
-        L["Show border"],
-        L["Enables the shot bar's border."],
-        addon_data.hunter.ShowBorderCheckBoxOnClick)
-    panel.show_border_checkbox:SetPoint("TOPLEFT", 10, -90)
-    
-    -- Show Classic Bars Checkbox
-    panel.classic_bars_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterClassicBarsCheckBox",
-        panel,
-        L["Classic bars"],
-        L["Enables the classic texture for the shot bars."],
-        addon_data.hunter.ClassicBarsCheckBoxOnClick)
-    panel.classic_bars_checkbox:SetPoint("TOPLEFT", 10, -110)
-    
-    -- One bar Checkbox
-    panel.one_bar_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterOneBarCheckBox",
-        panel,
-        L["YaHT / One bar"],
-        L["Changes the Auto Shot bar to a single bar that fills from left to right"],
-        addon_data.hunter.OneBarCheckBoxOnClick)
-    panel.one_bar_checkbox:SetPoint("TOPLEFT", 10, -130)
-    
-    -- Show Text Checkbox
-    panel.show_text_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowTextCheckBox",
-        panel,
-        L["Show Text"],
-        L["Enables the shot bar text."],
-        addon_data.hunter.ShowTextCheckBoxOnClick)
-    panel.show_text_checkbox:SetPoint("TOPLEFT", 10, -150)
-    
-    -- Width EditBox
-    panel.width_editbox = addon_data.config.EditBoxFactory(
-        "HunterWidthEditBox",
-        panel,
-        L["Bar Width"],
-        75,
-        25,
-        addon_data.hunter.WidthEditBoxOnEnter)
-    panel.width_editbox:SetPoint("TOPLEFT", 260, -90, "BOTTOMRIGHT", 275, -115)
-    -- Height EditBox
-    panel.height_editbox = addon_data.config.EditBoxFactory(
-        "HunterHeightEditBox",
-        panel,
-        L["Bar Height"],
-        75,
-        25,
-        addon_data.hunter.HeightEditBoxOnEnter)
-	panel.height_editbox:SetPoint("TOPLEFT", 340, -90, "BOTTOMRIGHT", 225, -115)
-	-- Font Size EditBox
-	panel.fontsize_editbox = addon_data.config.EditBoxFactory(
-        "FontSizeEditBox",
-        panel,
-        L["Font Size"],
-        75,
-        25,
-        addon_data.hunter.FontSizeEditBoxOnEnter)
-    panel.fontsize_editbox:SetPoint("TOPLEFT", 180, -90)
-    -- X Offset EditBox
-    panel.x_offset_editbox = addon_data.config.EditBoxFactory(
-        "HunterXOffsetEditBox",
-        panel,
-        L["X Offset"],
-        75,
-        25,
-        addon_data.hunter.XOffsetEditBoxOnEnter)
-    panel.x_offset_editbox:SetPoint("TOPLEFT", 220, -140, "BOTTOMRIGHT", 275, -165)
-    -- Y Offset EditBox
-    panel.y_offset_editbox = addon_data.config.EditBoxFactory(
-        "HunterYOffsetEditBox",
-        panel,
-        L["Y Offset"],
-        75,
-        25,
-        addon_data.hunter.YOffsetEditBoxOnEnter)
-    panel.y_offset_editbox:SetPoint("TOPLEFT", 300, -140, "BOTTOMRIGHT", 225, -165)
-    
-    -- Cooldown color picker
-    panel.cooldown_color_picker = addon_data.config.color_picker_factory(
-        'HunterCooldownColorPicker',
-        panel,
-        settings.cooldown_r, settings.cooldown_g, settings.cooldown_b, settings.cooldown_a,
-        L["Auto Shot Cooldown Color"],
-        addon_data.hunter.CooldownColorPickerOnClick)
-    panel.cooldown_color_picker:SetPoint('TOPLEFT', 205, -180)
-    
-    -- In Combat Alpha Slider
-    panel.in_combat_alpha_slider = addon_data.config.SliderFactory(
-        "HunterInCombatAlphaSlider",
-        panel,
-        L["In Combat Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.hunter.CombatAlphaOnValChange)
-    panel.in_combat_alpha_slider:SetPoint("TOPLEFT", 425, -90)
-    -- Out Of Combat Alpha Slider
-    panel.ooc_alpha_slider = addon_data.config.SliderFactory(
-        "HunterOOCAlphaSlider",
-        panel,
-        L["Out of Combat Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.hunter.OOCAlphaOnValChange)
-    panel.ooc_alpha_slider:SetPoint("TOPLEFT", 425, -140)
-    -- Backplane Alpha Slider
-    panel.backplane_alpha_slider = addon_data.config.SliderFactory(
-        "HunterBackplaneAlphaSlider",
-        panel,
-        L["Backplane Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.hunter.BackplaneAlphaOnValChange)
-    panel.backplane_alpha_slider:SetPoint("TOPLEFT", 425, -190)
-    
-    -- Hunter Specific Settings Text
-    panel.hunter_text = addon_data.config.TextFactory(panel, L["Hunter Specific Settings"], 16)
-    panel.hunter_text:SetPoint("TOPLEFT", 10 , -230)
-    panel.hunter_text:SetTextColor(1, 0.9, 0, 1)
-
-    -- Show Autoshot delay timer Checkbox
-    panel.show_autoshot_delay_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowAutoShotDelayCheckBox",
-        panel,
-        L["Auto Shot delay timer"],
-        L["Shows a timer that represents when Auto shot is delayed."],
-        addon_data.hunter.ShowAutoShotDelayCheckBoxOnClick)
-    panel.show_autoshot_delay_checkbox:SetPoint("TOPLEFT", 10 / 1.1, -252 / 1.1)
-    
-    -- 3.3.5a backport: the original "Bar Explanation" picture described the TBC Auto Shot
-    -- cast ("don't move or cast Multi-Shot"), which WotLK no longer has, so it is not shown.
-    
-    -- Return the final panel
-    addon_data.hunter.UpdateConfigPanelValues()
-    return panel
 end

@@ -1,6 +1,6 @@
-# WeaponSwingTimer-335-ac
+# WeaponSwingTimer (3.3.5a, made for AzerothCore)
 
-> **This is a backport.** It brings **[WeaponSwingTimer-SixxFix](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix)** by WatchYourSixx (TBC Classic) to the unmodded **Wrath of the Lich King 3.3.5a (build 12340)** client.
+> **This is a backport.** It brings **[WeaponSwingTimer-SixxFix](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix)** by WatchYourSixx (TBC Classic) to the unmodded **Wrath of the Lich King 3.3.5a (build 12340)** client, made for [AzerothCore](https://www.azerothcore.org/) servers.
 >
 > All credit for the addon, its design and its artwork goes to the original authors:
 > - **WatchYourSixx** – [WeaponSwingTimer-SixxFix](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix) (the version this backport is based on, 6.7.4)
@@ -36,19 +36,33 @@ In WotLK Auto Shot has no cast time, so there is no red 'casting' section to sta
 3. Fully restart the game (a `/reload` does not pick up new image files).
 4. Type `/wst` in game to open the options.
 
+## Options
+Interface Options → AddOns → **WeaponSwingTimer**. The page opens on the general settings, with a collapsible tree of categories (the same layout as SimpleUnitFrames):
+- **WeaponSwingTimer**: lock all bars, **Show all bars** (shows every bar so you can drag it into place, until you close the options), **Only show bars available for this class**, welcome message, and which classes the bars show on.
+- **Melee Settings** → Player bar, Target bar
+- **Ranged Settings** → Shot bar, Spell cast bar
+- **Extras** → Appearance, Swing bar colours, New swing background, Experimental
+- **Profiles** → choose, create, copy, delete or reset profiles; **Export / Import**
+
+### Sharing profiles
+Profiles → **Export / Import**. Copy the code from the export box to share your current profile or move it to another account. To import, paste a code, press Accept, then either import it into your current profile or as a new profile. Codes only contain settings you've changed from the defaults, and only known settings of the right type are imported.
+
 ## Differences from the original
 
 ### Features added in this backport
 - **Default profile**: every character uses the shared "Default" profile and your changes are saved to it. Other profiles can still be created, copied and selected under *Profiles*.
-- **Show on classes**: on the main options page, choose which classes the bars appear on (all ticked by default).
-- **Ranged bars only when useful**: the shot bar shows for Hunters, and for Mages, Priests and Warlocks with a wand; the spell cast bar shows for Hunters. Both are hidden when no ranged weapon is equipped.
+- **Show on classes**: choose which classes the bars appear on (all ticked by default).
+- **Only show bars available for this class** (on by default): the shot bar shows for Hunters, and for Mages, Priests and Warlocks with a wand; the spell cast bar shows for Hunters. Both are hidden when no ranged weapon is equipped. Untick to allow them on any class.
+- **Show all bars** button for positioning every bar.
+- **Profile export / import** codes.
+- **Options window** rebuilt with Ace3 (AceConfig/AceGUI) as a collapsible tree.
 - **No fade animation**: the spell cast bar shows its result briefly, then hides in one step.
 - **Border on by default**, matching the original addon's screenshots.
 - **Options that don't apply to WotLK are removed or greyed out**: the Paladin seal-twist markers (seal twisting no longer exists), the TBC "Bar Explanation" picture (it described the Auto Shot cast), and cast-bar options for shots that are instant on your client (e.g. Aimed Shot).
 - **"Spell Bar Unlocked" only appears while the options window is open**, so the spell cast bar can be positioned without it showing all the time.
 
-### Extras page (optional, everything off by default)
-Interface Options → AddOns → WeaponSwingTimer (3.3.5a) → **Extras**. These answer open requests on the original issue trackers:
+### Extras (optional, everything off by default)
+These answer open requests on the original issue trackers:
 - **Font, bar texture and border** choice for all bars ([SixxFix #14](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/14), [#5](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/5)). Built-in game media; LibSharedMedia media also appears if another addon provides it.
 - **Vertical bars** for the player and target bars ([SixxFix #18](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/18)).
 - **Colour while a next-swing ability is queued**: Heroic Strike, Cleave, Maul, Raptor Strike, Rune Strike ([SixxFix #11](https://github.com/watchyoursixx/WeaponSwingTimer-SixxFix/issues/11)).
@@ -81,6 +95,6 @@ Most of these live in `WeaponSwingTimer_Compat.lua`, so the rest of the code sta
 - Swing resets and hunter shots are matched by spell name, so every rank works, including the WotLK ranks; Death Knight Rune Strike is added.
 - The hunter cast bar reads the real cast time from `UnitCastingInfo`, so haste and pushback are exact.
 - The bar backplane is a plain colour fill; the original white background texture rendered untinted on 3.3.5.
-- Options use the 3.3.5 Interface Options window and color picker instead of the retail Settings API; `BackdropTemplate` and `SetColorTexture` are not used.
+- Options use AceConfig-3.0, AceGUI-3.0 and AceDBOptions-3.0 from the [Ace3](https://www.wowace.com/projects/ace3) releases built for 3.3.5, instead of the retail Settings API; `BackdropTemplate` and `SetColorTexture` are not used.
 - Ace3 CallbackHandler and AceDB are patched for the missing `securecallfunction` and `GetCurrentRegion`.
 - The TBC-era per-character settings migration is removed; any character it had moved to a "Name - Realm" profile is moved back to Default.

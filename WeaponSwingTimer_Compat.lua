@@ -1,25 +1,17 @@
---[[
-    WeaponSwingTimer-335-ac : 3.3.5a (Wrath of the Lich King, build 12340) compatibility layer.
-
-    The original WeaponSwingTimer-SixxFix targets TBC Classic (2.5.x), which runs on the modern
-    client API. This file bridges every API difference the addon relies on so the rest of the
-    code -- and the look of the bars -- stays identical to the original.
-]]
+-- 3.3.5a (12340) compatibility: bridges the API differences from TBC Classic so the rest of
+-- the code stays close to the original.
 local addon_name, addon_data = ...
 
 local compat = {}
 addon_data.compat = compat
 
--- Media path follows the actual folder name so the addon works however the folder is named.
+-- Media path follows the folder name
 addon_data.media = "Interface\\AddOns\\" .. addon_name .. "\\Images\\"
-addon_data.font = "Fonts\\FRIZQT__.TTF"
 
--- "BackdropTemplate" only exists on 9.x+ clients; on 3.3.5 every frame has SetBackdrop natively.
+-- BackdropTemplate is 9.x+; on 3.3.5 every frame has SetBackdrop
 compat.BackdropTemplate = BackdropTemplateMixin and "BackdropTemplate" or nil
 
---[[------------------------------------------------------------------------------------------
-    Widget polyfills (only applied when missing)
---------------------------------------------------------------------------------------------]]
+-- Widget polyfills
 do
     local probe = CreateFrame("Frame")
     local frame_mt = getmetatable(probe).__index
@@ -32,7 +24,7 @@ do
     end
 end
 
--- Texture:SetColorTexture does not exist on 3.3.5; SetTexture(r, g, b, a) is the equivalent.
+-- No SetColorTexture on 3.3.5: SetTexture(r, g, b, a)
 compat.SetColorTexture = function(texture, r, g, b, a)
     if texture.SetColorTexture then
         texture:SetColorTexture(r, g, b, a)
@@ -41,9 +33,7 @@ compat.SetColorTexture = function(texture, r, g, b, a)
     end
 end
 
--- Backplane behind every bar: a solid dark fill plus the addon's cast-bar style border.
--- The fill is a plain color texture (always renders on 3.3.5, never comes out white);
--- the border is the original Border texture drawn as a backdrop edge.
+-- Bar backplane: solid dark fill (never renders white) plus the chosen border
 compat.ApplyBackplane = function(backplane, show_border, alpha)
     if not backplane.wst_fill then
         backplane.wst_fill = backplane:CreateTexture(nil, "BACKGROUND")
@@ -64,20 +54,15 @@ compat.ApplyBackplane = function(backplane, show_border, alpha)
     end
 end
 
--- GetNetStats: 3.3.5 returns (down, up, latency); modern clients add latencyHome/latencyWorld.
+-- 3.3.5 GetNetStats: down, up, latency
 compat.GetLatency = function()
     local _, _, home, world = GetNetStats()
     return world or home or 0
 end
 
---[[------------------------------------------------------------------------------------------
-    Spell info
-    3.3.5 GetSpellInfo: name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange
-    Modern GetSpellInfo: name, rank, icon, castTime, minRange, maxRange, spellID
---------------------------------------------------------------------------------------------]]
+-- Spell info (3.3.5 GetSpellInfo has cost/funnel/power before castTime)
 
--- Canonical IDs the hunter / castbar logic is written against. Any rank or name of these
--- spells is mapped back to the canonical ID, so WotLK ranks (e.g. Multi-Shot 49048) work.
+-- Any rank of these spells maps to the ID the hunter code uses
 local canonical_ids = {
     75,     -- Auto Shot
     5019,   -- Shoot (wand)
@@ -96,7 +81,7 @@ local function BuildCanonical()
 end
 BuildCanonical()
 
--- Returns the canonical spell ID for a spell ID or spell name; unknown spells pass through.
+-- Spell ID or name -> canonical ID (unknown spells pass through)
 compat.NormalizeSpell = function(id_or_name)
     if id_or_name == nil then return nil end
     local name = id_or_name
@@ -109,7 +94,7 @@ compat.NormalizeSpell = function(id_or_name)
     return id_or_name
 end
 
--- True if the player has this spell in their spellbook (3.3.5: no IsSpellKnown by name).
+-- Spellbook lookup by name (no IsSpellKnown on 3.3.5)
 compat.IsSpellKnownByName = function(name)
     if not name or not GetSpellName then return false end
     local i = 1
@@ -121,7 +106,7 @@ compat.IsSpellKnownByName = function(name)
     end
 end
 
--- GetSpellInfo returning the modern (classic-era) layout.
+-- GetSpellInfo in the modern return order
 compat.GetSpellInfo = function(spell)
     local name, rank, icon, _, _, _, cast_time, min_range, max_range = GetSpellInfo(spell)
     if not name then return nil end
@@ -129,13 +114,7 @@ compat.GetSpellInfo = function(spell)
     return name, rank, icon, cast_time, min_range, max_range, spell_id
 end
 
---[[------------------------------------------------------------------------------------------
-    Combat log
-    3.3.5 CLEU payload: timestamp, event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, ...
-    Modern payload:     timestamp, event, hideCaster, srcGUID, srcName, srcFlags, srcRaidFlags,
-                        dstGUID, dstName, dstFlags, dstRaidFlags, ...
-    The addon parses the modern layout, so we rebuild it here.
---------------------------------------------------------------------------------------------]]
+-- Combat log: rebuild the modern argument layout from 3.3.5's
 compat.BuildCombatInfo = function(...)
     if CombatLogGetCurrentEventInfo then
         return {CombatLogGetCurrentEventInfo()}
@@ -147,7 +126,7 @@ compat.BuildCombatInfo = function(...)
     }
     local n = select("#", ...)
     if event == "SWING_MISSED" then
-        -- 3.3.5: missType, amountMissed      modern: missType, isOffHand, amountMissed
+        -- 3.3.5 has no isOffHand here
         info[12] = select(9, ...)
         info[13] = nil
         info[14] = select(10, ...)
@@ -157,12 +136,12 @@ compat.BuildCombatInfo = function(...)
             info[i + 3] = select(i, ...)
         end
         if event == "SWING_DAMAGE" then
-            -- 3.3.5 has no isOffHand flag (suffix index 10). Mark it so the timers can infer it.
+            -- no isOffHand on 3.3.5: the timers infer it
             info[21] = nil
             info.offhand_unknown = true
         end
     end
-    -- Spell events carry spellId first: map ranks to the canonical IDs used by the addon.
+    -- map spell ranks to canonical IDs
     if type(info[12]) == "number" and event ~= "SWING_MISSED" and event ~= "SWING_DAMAGE"
        and event ~= "ENVIRONMENTAL_DAMAGE" then
         info[12] = compat.NormalizeSpell(info[12])
@@ -170,8 +149,7 @@ compat.BuildCombatInfo = function(...)
     return info
 end
 
--- 3.3.5 has no off-hand flag on swings. The hand that just swung is the one whose
--- timer is closest to (or past) ready, which is what every 3.3.5 swing timer relies on.
+-- The hand that swung is the one closest to ready
 compat.SwingWasOffhand = function(unit_data)
     if not unit_data.has_offhand then
         return false
@@ -179,10 +157,7 @@ compat.SwingWasOffhand = function(unit_data)
     return unit_data.off_swing_timer < unit_data.main_swing_timer
 end
 
---[[------------------------------------------------------------------------------------------
-    UNIT_SPELLCAST_* events
-    3.3.5: unit, spellName, spellRank[, lineID, spellID]     modern: unit, castGUID, spellID
---------------------------------------------------------------------------------------------]]
+-- UNIT_SPELLCAST_*: 3.3.5 passes unit, spellName, spellRank
 compat.SpellFromCastEvent = function(...)
     local unit, arg2, arg3, arg4, arg5 = ...
     local spell
@@ -196,58 +171,8 @@ compat.SpellFromCastEvent = function(...)
     return unit, compat.NormalizeSpell(spell)
 end
 
---[[------------------------------------------------------------------------------------------
-    Interface options
---------------------------------------------------------------------------------------------]]
-compat.RegisterOptionsPanel = function(panel)
-    panel:Hide()
-    if Settings and Settings.RegisterCanvasLayoutCategory then
-        if not panel.parent then
-            local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
-            Settings.RegisterAddOnCategory(category)
-            compat.settings_category = category
-            addon_data.config.settingsCategoryID = category:GetID()
-        else
-            Settings.RegisterCanvasLayoutSubcategory(compat.settings_category, panel, panel.name)
-        end
-    else
-        InterfaceOptions_AddCategory(panel)
-    end
-end
-
+-- Open the options (called twice: the first call on 3.3.5 doesn't select the category)
 compat.OpenOptions = function(panel)
-    if Settings and Settings.OpenToCategory and addon_data.config.settingsCategoryID then
-        Settings.OpenToCategory(addon_data.config.settingsCategoryID)
-    elseif InterfaceOptionsFrame_OpenToCategory then
-        -- Called twice to work around the well known 3.3.5 bug where the first call
-        -- only opens the frame without selecting the category.
-        InterfaceOptionsFrame_OpenToCategory(panel)
-        InterfaceOptionsFrame_OpenToCategory(panel)
-    end
-end
-
---[[------------------------------------------------------------------------------------------
-    Color picker (3.3.5 uses the field based API instead of SetupColorPickerAndShow)
---------------------------------------------------------------------------------------------]]
-compat.ShowColorPicker = function(info)
-    if ColorPickerFrame.SetupColorPickerAndShow then
-        ColorPickerFrame:SetupColorPickerAndShow(info)
-        return
-    end
-    ColorPickerFrame:Hide()
-    ColorPickerFrame.func = info.swatchFunc
-    ColorPickerFrame.opacityFunc = info.opacityFunc
-    ColorPickerFrame.cancelFunc = info.cancelFunc
-    ColorPickerFrame.hasOpacity = info.hasOpacity
-    ColorPickerFrame.opacity = info.opacity
-    ColorPickerFrame.previousValues = {info.r, info.g, info.b, info.opacity}
-    ColorPickerFrame:SetColorRGB(info.r, info.g, info.b)
-    ShowUIPanel(ColorPickerFrame)
-end
-
-compat.GetColorPickerAlpha = function()
-    if ColorPickerFrame.GetColorAlpha then
-        return ColorPickerFrame:GetColorAlpha()
-    end
-    return 1 - OpacitySliderFrame:GetValue()
+    InterfaceOptionsFrame_OpenToCategory(panel)
+    InterfaceOptionsFrame_OpenToCategory(panel)
 end

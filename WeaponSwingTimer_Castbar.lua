@@ -197,7 +197,7 @@ addon_data.castbar.UpdateCastTimer = function(elapsed)
 		addon_data.castbar.cast_time = base_cast_time * addon_data.hunter.range_cast_speed_modifer
 	end
 	
-    -- 3.3.5: the client knows the real (hasted, pushed back) cast window; prefer it when available
+    -- use the client's real cast window (haste, pushback)
     local casting_name, _, _, _, start_ms, end_ms = UnitCastingInfo("player")
     if casting_name and start_ms and end_ms and end_ms > start_ms then
         addon_data.castbar.cast_start_time = start_ms / 1000
@@ -211,8 +211,10 @@ addon_data.castbar.UpdateCastTimer = function(elapsed)
 	addon_data.castbar.total_pushback = addon_data.castbar.cast_time - addon_data.castbar.initial_cast_time
 end
 
--- Hunters only, and only with a ranged weapon equipped
+-- Hunters with a ranged weapon
 addon_data.castbar.IsRelevant = function()
+    if addon_data.core.preview then return true end
+    if character_core_settings and character_core_settings.only_class_bars == false then return true end
     local _, class = UnitClass("player")
     return class == "HUNTER" and GetInventoryItemID("player", INVSLOT_RANGED or 18) ~= nil
 end
@@ -412,8 +414,7 @@ addon_data.castbar.UpdateVisualsOnUpdate = function()
 		frame.spell_bar:SetVertexColor(0.2, 0.2, 0.2, 1)
 		frame:SetSize(settings.width, settings.height)
 		frame.spell_spark:Hide()
-		-- 3.3.5a backport: the "Spell Bar Unlocked" placeholder only shows while the options
-		-- window is open (so the bar can be positioned), not all the time
+		-- placeholder only while the options window is open
 		local options_open = InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown()
         if not (settings.is_locked) and options_open then
 			frame.spell_text_center:SetText(L["Spell Bar Unlocked"])
@@ -530,287 +531,4 @@ addon_data.castbar.InitializeVisuals = function()
     addon_data.castbar.UpdateVisualsOnSettingsChange()
     addon_data.castbar.UpdateVisualsOnUpdate()
     frame:Show()
-end
-
-
-
---- Everything below is designated as part of the UI settings menu. Checkboxes, adjustments, sliders
---- ------------------------------------------------------------------------------------------------
---- Adjusts the values of everything based on the settings selected with UpdateConfigPanelValues
---- 10 boxes that can be checked, all exact same just with different names
---- Bar height, width, and offset values set with numerical value
---- Color picker selection for 3 visual displays of the bars
---- Alpha adjustments for 3 visual displays of the bars
--- 3.3.5a backport: grey out cast-bar options for shots that are instant on this client
--- (checked against the player's own spellbook, e.g. Aimed Shot is instant in WotLK)
-local shot_option_spells = {
-    show_multishot_cast_bar_checkbox = 2643,
-    show_aimedshot_cast_bar_checkbox = 19434,
-    show_steadyshot_cast_bar_checkbox = 34120,
-}
-addon_data.castbar.ValidateShotOptions = function(panel)
-    for key, spell_id in pairs(shot_option_spells) do
-        local checkbox = panel[key]
-        local label = checkbox and getglobal(checkbox:GetName() .. "Text")
-        if checkbox and label then
-            checkbox.wst_label = checkbox.wst_label or label:GetText()
-            local name = GetSpellInfo(spell_id)
-            local known, _, _, cast_ms = false, nil, nil, nil
-            if name then
-                local _, _, _, ms = addon_data.compat.GetSpellInfo(name)
-                if ms ~= nil and addon_data.compat.IsSpellKnownByName(name) then
-                    known, cast_ms = true, ms
-                end
-            end
-            checkbox.wst_tooltip = checkbox.wst_tooltip or checkbox.tooltip
-            if known and cast_ms == 0 then
-                -- greyed out (label kept short so it does not run under the edit boxes)
-                checkbox:Disable()
-                label:SetTextColor(0.5, 0.5, 0.5)
-                checkbox.tooltip = (L["Instant cast on this client, so there is no cast bar."]
-                    or "Instant cast on this client, so there is no cast bar.")
-            else
-                checkbox:Enable()
-                label:SetTextColor(1, 1, 1)
-                checkbox.tooltip = checkbox.wst_tooltip
-            end
-        end
-    end
-end
-
-addon_data.castbar.UpdateConfigPanelValues = function()
-    local panel = addon_data.castbar.config_frame
-    local settings = character_castbar_settings
-    addon_data.castbar.ValidateShotOptions(panel)
-    if not panel.wst_validate_hooked then
-        -- the spellbook may not be loaded yet at login: check again whenever the page opens
-        panel:HookScript("OnShow", addon_data.castbar.ValidateShotOptions)
-        panel.wst_validate_hooked = true
-    end
-    panel.show_aimedshot_cast_bar_checkbox:SetChecked(settings.show_aimedshot_cast_bar)
-    panel.show_multishot_cast_bar_checkbox:SetChecked(settings.show_multishot_cast_bar)
-    panel.show_steadyshot_cast_bar_checkbox:SetChecked(settings.show_steadyshot_cast_bar)
-    panel.show_latency_bar_checkbox:SetChecked(settings.show_latency_bars)
-    panel.show_casttext_checkbox:SetChecked(settings.show_cast_text)
-    panel.width_editbox:SetText(tostring(settings.width))
-    panel.width_editbox:SetCursorPosition(0)
-    panel.height_editbox:SetText(tostring(settings.height))
-    panel.height_editbox:SetCursorPosition(0)
-	panel.fontsize_editbox:SetText(tostring(settings.fontsize))
-    panel.fontsize_editbox:SetCursorPosition(0)
-    panel.x_offset_editbox:SetText(tostring(settings.x_offset))
-    panel.x_offset_editbox:SetCursorPosition(0)
-    panel.y_offset_editbox:SetText(tostring(settings.y_offset))
-    panel.y_offset_editbox:SetCursorPosition(0)
-        
-    panel.in_combat_alpha_slider:SetValue(settings.in_combat_alpha)
-    panel.in_combat_alpha_slider.editbox:SetCursorPosition(0)
-    -- panel.ooc_alpha_slider:SetValue(settings.ooc_alpha)
-    -- panel.ooc_alpha_slider.editbox:SetCursorPosition(0)
-    panel.backplane_alpha_slider:SetValue(settings.backplane_alpha)
-    panel.backplane_alpha_slider.editbox:SetCursorPosition(0)
-end
-
-addon_data.castbar.ShowAimedShotCastBarCheckBoxOnClick = function(self)
-    character_castbar_settings.show_aimedshot_cast_bar = self:GetChecked()
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.ShowMultiShotCastBarCheckBoxOnClick = function(self)
-    character_castbar_settings.show_multishot_cast_bar = self:GetChecked()
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.ShowSteadyShotCastBarCheckBoxOnClick = function(self)
-    character_castbar_settings.show_steadyshot_cast_bar = self:GetChecked()
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.ShowLatencyBarsCheckBoxOnClick = function(self)
-    character_castbar_settings.show_latency_bars = self:GetChecked()
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.ShowCastTextCheckBoxOnClick = function(self)
-    character_castbar_settings.show_cast_text = self:GetChecked()
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.WidthEditBoxOnEnter = function(self)
-    character_castbar_settings.width = tonumber(self:GetText())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.HeightEditBoxOnEnter = function(self)
-    character_castbar_settings.height = tonumber(self:GetText())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.FontSizeEditBoxOnEnter = function(self)
-    character_castbar_settings.fontsize = tonumber(self:GetText())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.XOffsetEditBoxOnEnter = function(self)
-    character_castbar_settings.x_offset = tonumber(self:GetText())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.YOffsetEditBoxOnEnter = function(self)
-    character_castbar_settings.y_offset = tonumber(self:GetText())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.castbar.CombatAlphaOnValChange = function(self)
-    character_castbar_settings.in_combat_alpha = tonumber(self:GetValue())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
-
--- addon_data.castbar.OOCAlphaOnValChange = function(self)
-    -- character_castbar_settings.ooc_alpha = tonumber(self:GetValue())
-    -- addon_data.castbar.UpdateVisualsOnSettingsChange()
--- end
-
-addon_data.castbar.BackplaneAlphaOnValChange = function(self)
-    character_castbar_settings.backplane_alpha = tonumber(self:GetValue())
-    addon_data.castbar.UpdateVisualsOnSettingsChange()
-end
---- Initializes the main setting panel including layout, alignment, and design
-addon_data.castbar.CreateConfigPanel = function(parent_panel)
-    addon_data.castbar.config_frame = CreateFrame("Frame", addon_name .. "CastbarConfigPanel", parent_panel)
-    local panel = addon_data.castbar.config_frame
-    local settings = character_castbar_settings
-    
-    -- Title Text
-    panel.title_text = addon_data.config.TextFactory(panel, L["Player Spell Bar Settings"], 20)
-    panel.title_text:SetPoint("TOPLEFT", 10, -10)
-    panel.title_text:SetTextColor(1, 0.82, 0, 1)
-    
-    -- Show Text Checkbox
-    panel.show_casttext_checkbox = addon_data.config.CheckBoxFactory(
-        "CastBarShowCastTextCheckBox",
-        panel,
-		L["Show Cast Text"],
-        L["Enables the cast bar text."],
-        addon_data.castbar.ShowCastTextCheckBoxOnClick)
-    panel.show_casttext_checkbox:SetPoint("TOPLEFT", 10, -35)
-
-    -- Show Multi Shot Cast Bar Checkbox
-    panel.show_multishot_cast_bar_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowMultiShotCastBarCheckBox",
-        panel,
-        L["Multi-Shot cast bar"],
-        L["Allows the cast bar to show Multi-Shot casts."],
-        addon_data.castbar.ShowMultiShotCastBarCheckBoxOnClick)
-    panel.show_multishot_cast_bar_checkbox:SetPoint("TOPLEFT", 10, -55)
-    
-    -- Show Aimed Shot Cast Bar Checkbox
-    panel.show_aimedshot_cast_bar_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowAimedShotCastBarCheckBox",
-        panel,
-        L["Aimed Shot cast bar"],
-        L["Allows the cast bar to show Aimed Shot casts."],
-        addon_data.castbar.ShowAimedShotCastBarCheckBoxOnClick)
-    panel.show_aimedshot_cast_bar_checkbox:SetPoint("TOPLEFT", 10, -75)
-
-    -- Show Steady Shot Cast Bar Checkbox
-    panel.show_steadyshot_cast_bar_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowSteadyShotCastBarCheckBox",
-        panel,
-        L["Steady Shot cast bar"],
-        L["Allows the cast bar to show Steady Shot casts."],
-        addon_data.castbar.ShowSteadyShotCastBarCheckBoxOnClick)
-    panel.show_steadyshot_cast_bar_checkbox:SetPoint("TOPLEFT", 10, -95)
-
-    -- Show Latency Bar Checkbox
-    panel.show_latency_bar_checkbox = addon_data.config.CheckBoxFactory(
-        "HunterShowLatencyBarCheckBox",
-        panel,
-        L["Latency bar"],
-        L["Shows a bar that represents latency on cast bar."],
-        addon_data.castbar.ShowLatencyBarsCheckBoxOnClick)
-    panel.show_latency_bar_checkbox:SetPoint("TOPLEFT", 10, -115)
-
-    -- Font Size EditBox
-	panel.fontsize_editbox = addon_data.config.EditBoxFactory(
-        "FontSizeEditBox",
-        panel,
-        L["Font Size"],
-        75,
-        25,
-        addon_data.castbar.FontSizeEditBoxOnEnter)
-    panel.fontsize_editbox:SetPoint("TOPLEFT", 180, -50)
-
-    -- Width EditBox
-    panel.width_editbox = addon_data.config.EditBoxFactory(
-        "CastBarWidthEditBox",
-        panel,
-        L["Bar Width"],
-        75,
-        25,
-        addon_data.castbar.WidthEditBoxOnEnter)
-    panel.width_editbox:SetPoint("TOPLEFT", 260, -50, "BOTTOMRIGHT", 275, -60)
-    -- Height EditBox
-    panel.height_editbox = addon_data.config.EditBoxFactory(
-        "CastBarHeightEditBox",
-        panel,
-        L["Bar Height"],
-        75,
-        25,
-        addon_data.castbar.HeightEditBoxOnEnter)
-	panel.height_editbox:SetPoint("TOPLEFT", 340, -50, "BOTTOMRIGHT", 225, -60)
-
-    -- X Offset EditBox
-    panel.x_offset_editbox = addon_data.config.EditBoxFactory(
-        "CastBarXOffsetEditBox",
-        panel,
-        L["X Offset"],
-        75,
-        25,
-        addon_data.castbar.XOffsetEditBoxOnEnter)
-    panel.x_offset_editbox:SetPoint("TOPLEFT", 220, -95, "BOTTOMRIGHT", 275, -105)
-    -- Y Offset EditBox
-    panel.y_offset_editbox = addon_data.config.EditBoxFactory(
-        "CastBarYOffsetEditBox",
-        panel,
-        L["Y Offset"],
-        75,
-        25,
-        addon_data.castbar.YOffsetEditBoxOnEnter)
-    panel.y_offset_editbox:SetPoint("TOPLEFT", 300, -95, "BOTTOMRIGHT", 225, -105)
-         
-    -- In Combat Alpha Slider
-    panel.in_combat_alpha_slider = addon_data.config.SliderFactory(
-        "CastBarInCombatAlphaSlider",
-        panel,
-        L["In Combat Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.castbar.CombatAlphaOnValChange)
-    panel.in_combat_alpha_slider:SetPoint("TOPLEFT", 425, -50)
-    -- -- Out Of Combat Alpha Slider
-    -- panel.ooc_alpha_slider = addon_data.config.SliderFactory(
-    --     "CastBarOOCAlphaSlider",
-    --     panel,
-    --     L["Out of Combat Alpha"],
-    --     0,
-    --     1,
-    --     0.05,
-    --     addon_data.castbar.OOCAlphaOnValChange)
-    -- panel.ooc_alpha_slider:SetPoint("TOPLEFT", 425, -65)
-    -- Backplane Alpha Slider
-    panel.backplane_alpha_slider = addon_data.config.SliderFactory(
-        "CastBarBackplaneAlphaSlider",
-        panel,
-        L["Backplane Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.castbar.BackplaneAlphaOnValChange)
-    panel.backplane_alpha_slider:SetPoint("TOPLEFT", 425, -100)
-    
-    -- Return the final panel
-    addon_data.castbar.UpdateConfigPanelValues()
-    return panel
 end

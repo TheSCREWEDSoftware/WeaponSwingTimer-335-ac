@@ -15,7 +15,7 @@ local version = "6.7.4-335a"
 local load_message = L["Thank you for installing WeaponSwingTimer Version"] .. " " .. version .. 
                      " " .. L["by WatchYourSixx! Use |cFFFFC300/wst|r for more options."]
                      
--- Classes the bars are shown on (all ticked by default; stored in the profile)
+-- Classes the bars show on
 addon_data.core.class_list = {
     "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST",
     "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID",
@@ -24,13 +24,14 @@ addon_data.core.class_list = {
 addon_data.core.default_settings = {
     one_frame = false,
 	welcome_message = true,
+    only_class_bars = true,
     enabled_classes = {
         WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true,
         DEATHKNIGHT = true, SHAMAN = true, MAGE = true, WARLOCK = true, DRUID = true,
     },
 }
 
--- True when the bars should show for the character currently logged in
+-- True when the bars should show for this character
 addon_data.core.IsClassEnabled = function()
     local _, class = UnitClass("player")
     local classes = character_core_settings and character_core_settings.enabled_classes
@@ -540,7 +541,7 @@ swing_reset_spells['WARRIOR'] = {
     -- --[[ Shoot Bow ]]
     -- --[[ Shoot Crossbow ]]
     -- --[[ Shoot Gun ]]
-    -- WotLK: Slam no longer resets the swing timer (as in watchyoursixx's wotlk-master)
+    -- Slam doesn't reset the swing in WotLK (watchyoursixx's wotlk-master)
     -- --[[ Slam ]]                    1464, 8820, 11604, 11605, 25241, 25242, 47474, 47475
     -- --[[ Sunder Armor ]]
     -- --[[ Sweeping Strikes ]]
@@ -553,8 +554,7 @@ swing_reset_spells['DEATHKNIGHT'] = {
     --[[ Rune Strike ]]             56815,
 }
 
--- 3.3.5: the combat log gives spell names that are identical for every rank, so swing resets
--- are matched by (localized) name. Built once from the IDs above.
+-- Swing resets matched by spell name (3.3.5's combat log name covers every rank)
 local swing_reset_names = {}
 local function BuildSwingResetNames()
     for class, spell_table in pairs(swing_reset_spells) do
@@ -623,7 +623,7 @@ addon_data.core.LoadSettings = function()
 end
 
 local function CoreFrame_OnUpdate(self, elapsed)
-    if not addon_data.core.IsClassEnabled() then
+    if not addon_data.core.IsClassEnabled() and not addon_data.core.preview then
         HideAllBars()
         return
     end
@@ -631,10 +631,11 @@ local function CoreFrame_OnUpdate(self, elapsed)
     addon_data.target.OnUpdate(elapsed)
     addon_data.hunter.OnUpdate(elapsed)
 	addon_data.castbar.OnUpdate(elapsed)
+    if addon_data.core.preview then addon_data.options.ShowPreview() end
 end
 
 addon_data.core.MissHandler = function(unit, miss_type, is_offhand, is_player)
-    -- 3.3.5 combat log has no off-hand flag: infer it from the unit's timers
+    -- no off-hand flag on 3.3.5: infer it
     if is_offhand == nil then
         if unit == "player" then
             is_offhand = addon_data.compat.SwingWasOffhand(addon_data.player)
@@ -740,9 +741,7 @@ function addon_data.core.InitDB()
     local AceDB = LibStub("AceDB-3.0")
 
     addon_data.db = AceDB:New("WSTProfileDB", addon_data.defaults, true)
-    -- 3.3.5 port: every character uses the shared "Default" profile unless you pick another one.
-    -- The TBC-era per-character migration is not used (it would move characters onto
-    -- "Name - Realm" profiles); undo it for any character an earlier build already moved.
+    -- Everyone uses "Default"; undo the old per-character migration if it ran
     if addon_data.db.char.migratedLegacy then
         addon_data.db.char.migratedLegacy = nil
         if addon_data.db:GetCurrentProfile() ~= "Default" then
@@ -769,104 +768,6 @@ function addon_data.core.InitDB()
     addon_data.db:RegisterCallback("OnProfileChanged", RefreshFromDB)
     addon_data.db:RegisterCallback("OnProfileCopied",  RefreshFromDB)
     addon_data.db:RegisterCallback("OnProfileReset",   RefreshFromDB)
-end
-
-function addon_data.core.CheckLegacySettingsOrWarn()
-    if not addon_data.db then return end
-
-    -- Per-character storage inside AceDB
-    addon_data.db.char = addon_data.db.char or {}
-
-    -- Prevent spam
-    if addon_data.db.char.warnedMissingLegacy then
-        return
-    end
-
-    local function HasLegacySettings()
-        local function hasData(t)
-            return type(t) == "table" and next(t) ~= nil
-        end
-
-        return
-            hasData(_G.character_core_settings) or
-            hasData(_G.character_player_settings) or
-            hasData(_G.character_target_settings) or
-            hasData(_G.character_hunter_settings) or
-            hasData(_G.character_castbar_settings)
-    end
-
-    -- No legacy data found
-    if not HasLegacySettings() then
-        addon_data.db.char.warnedMissingLegacy = true
-        -- 3.3.5 port: fresh installs have no TBC-era per-character data, so stay silent.
-        do return end
-        addon_data.utils.PrintMsg(
-            "WST could not find your old per-character settings.\n" ..
-            "If you have a .bak file, please restore it:\n" ..
-            "|cffaaaaaaWTF/Account/<AccountName>/<ServerName>/SavedVariables/WeaponSwingTimer.lua.bak|r\n" ..
-            "Create a copy, and rename the .bak file to WeaponSwingTimer.lua\n" ..
-            "Then reload the game to migrate your settings into a profile automatically."
-        )
-    end
-end
-
-function addon_data.core.MigrateLegacyPerCharToProfile()
-    if not addon_data.db then return end
-
-    -- per-character storage inside AceDB
-    addon_data.db.char = addon_data.db.char or {}
-    addon_data.db.char.migratedLegacy = addon_data.db.char.migratedLegacy or {}
-
-    local playerName = UnitName("player")
-    local realmName = GetRealmName()
-    local key = playerName .. " - " .. realmName
-
-    -- already migrated on this character
-    if addon_data.db.char.migratedLegacy[key] then
-        return
-    end
-
-    -- Detect whether legacy data exists
-    local function hasData(t) 
-        return type(t) == "table" and next(t) ~= nil
-    end
-
-    local legacyExists =
-        hasData(_G.character_core_settings) or
-        hasData(_G.character_player_settings) or
-        hasData(_G.character_target_settings) or
-        hasData(_G.character_hunter_settings) or
-        hasData(_G.character_castbar_settings)
-
-    if not legacyExists then
-        return
-    end
-
-    -- Create/use a per-character profile name
-    local profileName = key
-
-    -- Create profile if it doesn't exist
-    local profiles = addon_data.db:GetProfiles()
-    local found = false
-    for _, p in ipairs(profiles) do
-        if p == profileName then found = true break end
-    end
-    if not found then
-        addon_data.db:SetProfile(profileName)
-        addon_data.utils.PrintMsg("WST automatically imported your previous settings and saved under" .. " " .. profileName)
-    else
-        addon_data.db:SetProfile(profileName)
-    end
-
-    addon_data.db.profile.core    = addon_data.utils.DeepCopy(_G.character_core_settings or {}, {})
-    addon_data.db.profile.player  = addon_data.utils.DeepCopy(_G.character_player_settings or {}, {})
-    addon_data.db.profile.target  = addon_data.utils.DeepCopy(_G.character_target_settings or {}, {})
-    addon_data.db.profile.hunter  = addon_data.utils.DeepCopy(_G.character_hunter_settings or {}, {})
-    addon_data.db.profile.castbar = addon_data.utils.DeepCopy(_G.character_castbar_settings or {}, {})
-
-    -- Mark migrated for this character
-    addon_data.db.char.migratedLegacy[key] = true
-
 end
 
 local function OnAddonLoaded(self)
@@ -920,7 +821,7 @@ local function CoreFrame_OnEvent(self, event, ...)
             OnAddonLoaded()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        -- On 3.3.5 the player GUID can still be nil while ADDON_LOADED fires
+        -- player GUID can be nil during ADDON_LOADED on 3.3.5
         addon_data.player.guid = UnitGUID("player")
         addon_data.player.class = select(2, UnitClass("player"))
         addon_data.core.in_combat = UnitAffectingCombat("player") and true or false

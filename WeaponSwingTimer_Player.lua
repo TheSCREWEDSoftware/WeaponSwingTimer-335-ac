@@ -30,9 +30,6 @@ addon_data.player.default_settings = {
     main_text_r = 1.0, main_text_g = 1.0, main_text_b = 1.0, main_text_a = 1.0,
     off_r = 0.1, off_g = 0.1, off_b = 0.9, off_a = 1.0,
     off_text_r = 1.0, off_text_g = 1.0, off_text_b = 1.0, off_text_a = 1.0,
-	pala_show_blood = false,
-	pala_show_command = false,
-	pala_offset = 6,
 }
 
 addon_data.player.class = select(2, UnitClass("player"))
@@ -65,10 +62,10 @@ addon_data.player.LoadSettings = function()
     addon_data.player.class = select(2, UnitClass("player"))
     addon_data.player.guid  = UnitGUID("player")
 
-    -- 3.3.5a backport: seal twisting does not exist in WotLK, so the Paladin twist/GCD
-    -- markers are always off and their options are not shown
-    character_player_settings.pala_show_blood = false
-    character_player_settings.pala_show_command = false
+    -- drop retired Paladin seal-twist settings
+    character_player_settings.pala_show_blood = nil
+    character_player_settings.pala_show_command = nil
+    character_player_settings.pala_offset = nil
 end
 
 --[[============================================================================================]]--
@@ -90,7 +87,7 @@ addon_data.player.OnUpdate = function(elapsed)
 			
         -- If the weapon speed changed for either hand then a buff occured and we need to modify the timers
         if addon_data.player.main_speed_changed or addon_data.player.off_speed_changed then
-            -- Only rescale a swing that is actually running (Treeston, LeftHandedGlove PR #26)
+            -- only rescale a running swing (Treeston, LeftHandedGlove PR #26)
             if addon_data.player.main_swing_timer > 0 then
                 local main_multiplier = addon_data.player.main_weapon_speed / addon_data.player.prev_main_weapon_speed
                 addon_data.player.main_swing_timer = addon_data.player.main_swing_timer * main_multiplier
@@ -129,8 +126,7 @@ addon_data.player.OnInventoryChange = function()
     addon_data.player.off_weapon_id = new_off_guid
 end
 
--- When auto-attack starts, the off-hand's first swing comes half a swing later
--- (Treeston, LeftHandedGlove PR #27)
+-- Off-hand starts half a swing late (Treeston, LeftHandedGlove PR #27)
 addon_data.player.OnPlayerEnterCombat = function()
     if addon_data.player.has_offhand then
         addon_data.player.off_swing_timer = max(addon_data.player.off_swing_timer, addon_data.player.off_weapon_speed * 0.5)
@@ -253,24 +249,8 @@ addon_data.player.UpdateVisualsOnUpdate = function()
         end
         -- Update the main bars width
         local main_width = math.min(settings.width - (settings.width * (main_timer / main_speed)), settings.width)
-		local pala_blood_width, pala_command_width = 0, 0
-		local _, class = UnitClass("player")
-		if class == "PALADIN"
-		then
-			pala_blood_width = math.floor(math.min(settings.width - (settings.width * ( 0.4 / main_speed)), settings.width)+0.5) -- 0.4s for seal twist
-			local _, _, _, gcd, _,  _, _ = addon_data.compat.GetSpellInfo(19750)
-			if (not gcd) or (gcd > 1500) then
-				gcd = 1500
-			end
-			pala_command_width = math.floor(math.min(settings.width - (settings.width * ((gcd / 1000 ) / main_speed)), settings.width)+0.5)
-		else
-			frame.pala_blood_marker:Hide()
-			frame.pala_command_marker:Hide()
-		end
         if not settings.fill_empty then
             main_width = settings.width - main_width + 0.001
-            pala_blood_width = settings.width - pala_blood_width + 0.001
-            pala_command_width = settings.width - pala_command_width + 0.001
         end
         frame.main_bar:SetWidth(main_width)
         frame.main_spark:SetPoint('TOPLEFT', main_width - 8, 0)
@@ -279,8 +259,6 @@ addon_data.player.UpdateVisualsOnUpdate = function()
         else
             frame.main_spark:Show()
         end
-        frame.pala_blood_marker:SetPoint('TOPLEFT', pala_blood_width, settings.pala_offset)
-        frame.pala_command_marker:SetPoint('TOPLEFT', pala_command_width, settings.pala_offset)
         -- Update the main bars text
         frame.main_left_text:SetText(L["Main-Hand"])
         frame.main_right_text:SetText(tostring(addon_data.utils.SimpleRound(main_timer, 0.1)))
@@ -356,20 +334,6 @@ addon_data.player.UpdateVisualsOnSettingsChange = function()
         end
         frame.main_bar:SetVertexColor(settings.main_r, settings.main_g, settings.main_b, settings.main_a)
         frame.main_spark:SetSize(16, settings.height)
-		if (settings.pala_show_blood)
-		then
-			frame.pala_blood_marker:SetSize(1, settings.height+2*settings.pala_offset)
-			frame.pala_blood_marker:Show()
-		else
-			frame.pala_blood_marker:Hide()
-		end
-		if (settings.pala_show_command)
-		then
-			frame.pala_command_marker:SetSize(1, settings.height+2*settings.pala_offset)
-			frame.pala_command_marker:Show()
-		else
-			frame.pala_command_marker:Hide()
-		end
         frame.main_left_text:SetPoint("TOPLEFT", 2, -(settings.height / 2) + (settings.fontsize / 2))
         frame.main_left_text:SetTextColor(settings.main_text_r, settings.main_text_g, settings.main_text_b, settings.main_text_a)
 		frame.main_left_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
@@ -497,368 +461,8 @@ addon_data.player.InitializeVisuals = function()
     frame.off_right_text:SetFont(addon_data.GetBarFont(), settings.fontsize)
     frame.off_right_text:SetJustifyV("MIDDLE")
     frame.off_right_text:SetJustifyH("RIGHT")
-	-- Paladin sparks
-    frame.pala_blood_marker = frame:CreateTexture(nil,"BORDER")
-    addon_data.compat.SetColorTexture(frame.pala_blood_marker, 1, 0.996, 0.722, 1.0)
-    frame.pala_command_marker = frame:CreateTexture(nil,"BORDER")
-    addon_data.compat.SetColorTexture(frame.pala_command_marker, 1.0, 0.0, 0.0, 0.8)
     -- Show it off
     addon_data.player.UpdateVisualsOnSettingsChange()
     addon_data.player.UpdateVisualsOnUpdate()
     frame:Show()
 end
-
---[[============================================================================================]]--
---[[================================== CONFIG WINDOW RELATED ===================================]]--
---[[============================================================================================]]--
-
-addon_data.player.UpdateConfigPanelValues = function()
-    local panel = addon_data.player.config_frame
-    local settings = character_player_settings
-    panel.enabled_checkbox:SetChecked(settings.enabled)
-    panel.show_offhand_checkbox:SetChecked(settings.show_offhand)
-    panel.show_border_checkbox:SetChecked(settings.show_border)
-    panel.classic_bars_checkbox:SetChecked(settings.classic_bars)
-    panel.fill_empty_checkbox:SetChecked(settings.fill_empty)
-    panel.show_left_text_checkbox:SetChecked(settings.show_left_text)
-    panel.show_right_text_checkbox:SetChecked(settings.show_right_text)
-    panel.width_editbox:SetText(tostring(settings.width))
-    panel.width_editbox:SetCursorPosition(0)
-    panel.height_editbox:SetText(tostring(settings.height))
-    panel.height_editbox:SetCursorPosition(0)
-	panel.fontsize_editbox:SetText(tostring(settings.fontsize))
-    panel.fontsize_editbox:SetCursorPosition(0)
-    panel.x_offset_editbox:SetText(tostring(settings.x_offset))
-    panel.x_offset_editbox:SetCursorPosition(0)
-    panel.y_offset_editbox:SetText(tostring(settings.y_offset))
-    panel.y_offset_editbox:SetCursorPosition(0)
-    addon_data.compat.SetColorTexture(panel.main_color_picker.foreground, 
-        settings.main_r, settings.main_g, settings.main_b, settings.main_a)
-    addon_data.compat.SetColorTexture(panel.main_text_color_picker.foreground, 
-        settings.main_text_r, settings.main_text_g, settings.main_text_b, settings.main_text_a)
-    addon_data.compat.SetColorTexture(panel.off_color_picker.foreground, 
-        settings.off_r, settings.off_g, settings.off_b, settings.off_a)
-    addon_data.compat.SetColorTexture(panel.off_text_color_picker.foreground, 
-        settings.off_text_r, settings.off_text_g, settings.off_text_b, settings.off_text_a)
-    panel.in_combat_alpha_slider:SetValue(settings.in_combat_alpha)
-    panel.in_combat_alpha_slider.editbox:SetCursorPosition(0)
-    panel.ooc_alpha_slider:SetValue(settings.ooc_alpha)
-    panel.ooc_alpha_slider.editbox:SetCursorPosition(0)
-    panel.backplane_alpha_slider:SetValue(settings.backplane_alpha)
-    panel.backplane_alpha_slider.editbox:SetCursorPosition(0)
-end
-
-addon_data.player.EnabledCheckBoxOnClick = function(self)
-    character_player_settings.enabled = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowOffHandCheckBoxOnClick = function(self)
-    character_player_settings.show_offhand = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowBorderCheckBoxOnClick = function(self)
-    character_player_settings.show_border = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ClassicBarsCheckBoxOnClick = function(self)
-    character_player_settings.classic_bars = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.FillEmptyCheckBoxOnClick = function(self)
-    character_player_settings.fill_empty = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowLeftTextCheckBoxOnClick = function(self)
-    character_player_settings.show_left_text = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowRightTextCheckBoxOnClick = function(self)
-    character_player_settings.show_right_text = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowPaladinBloodCheckBoxOnClick = function(self)
-    character_player_settings.pala_show_blood = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.ShowPaladinCommandCheckBoxOnClick = function(self)
-    character_player_settings.pala_show_command = self:GetChecked()
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.WidthEditBoxOnEnter = function(self)
-    character_player_settings.width = tonumber(self:GetText())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.HeightEditBoxOnEnter = function(self)
-    character_player_settings.height = tonumber(self:GetText())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.FontSizeEditBoxOnEnter = function(self)
-    character_player_settings.fontsize = tonumber(self:GetText())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.XOffsetEditBoxOnEnter = function(self)
-    character_player_settings.x_offset = tonumber(self:GetText())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.YOffsetEditBoxOnEnter = function(self)
-    character_player_settings.y_offset = tonumber(self:GetText())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.MainColorPickerOnClick = function()
-    addon_data.config.ShowColorPicker(
-        character_player_settings,
-        "main",
-        addon_data.player.config_frame.main_color_picker.foreground,
-        addon_data.player.UpdateVisualsOnSettingsChange
-    )
-end
-
-addon_data.player.MainTextColorPickerOnClick = function()
-    addon_data.config.ShowColorPicker(
-        character_player_settings,
-        "main_text",
-        addon_data.player.config_frame.main_text_color_picker.foreground,
-        function(r, g, b, a)
-            addon_data.player.frame.main_left_text:SetTextColor(r, g, b, a)
-            addon_data.player.frame.main_right_text:SetTextColor(r, g, b, a)
-        end
-    )
-end
-
-addon_data.player.OffColorPickerOnClick = function()
-    addon_data.config.ShowColorPicker(
-        character_player_settings,
-        "off",
-        addon_data.player.config_frame.off_color_picker.foreground,
-        addon_data.player.UpdateVisualsOnSettingsChange
-    )
-end
-
-addon_data.player.OffTextColorPickerOnClick = function()
-    addon_data.config.ShowColorPicker(
-        character_player_settings,
-        "off_text",
-        addon_data.player.config_frame.off_text_color_picker.foreground,
-        function(r, g, b, a)
-            addon_data.player.frame.off_left_text:SetTextColor(r, g, b, a)
-            addon_data.player.frame.off_right_text:SetTextColor(r, g, b, a)
-        end
-    )
-end
-
-addon_data.player.CombatAlphaOnValChange = function(self)
-    character_player_settings.in_combat_alpha = tonumber(self:GetValue())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.OOCAlphaOnValChange = function(self)
-    character_player_settings.ooc_alpha = tonumber(self:GetValue())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.BackplaneAlphaOnValChange = function(self)
-    character_player_settings.backplane_alpha = tonumber(self:GetValue())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.PaladinOffsetOnValChange = function(self)
-    character_player_settings.pala_offset = tonumber(self:GetValue())
-    addon_data.player.UpdateVisualsOnSettingsChange()
-end
-
-addon_data.player.CreateConfigPanel = function(parent_panel)
-    addon_data.player.config_frame = CreateFrame("Frame", addon_name .. "PlayerConfigPanel", parent_panel)
-    local panel = addon_data.player.config_frame
-    local settings = character_player_settings
-    
-    -- Title Text
-    panel.title_text = addon_data.config.TextFactory(panel, L["Player Swing Bar Settings"], 20)
-    panel.title_text:SetPoint("TOPLEFT", 10, -10)
-    panel.title_text:SetTextColor(1, 0.82, 0, 1)
-    
-    -- Enabled Checkbox
-    panel.enabled_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerEnabledCheckBox",
-        panel,
-        L["Enable"],
-        L["Enables the player's swing bars."],
-        addon_data.player.EnabledCheckBoxOnClick)
-    panel.enabled_checkbox:SetPoint("TOPLEFT", 10, -40)
-    -- Show Off-Hand Checkbox
-    panel.show_offhand_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowOffHandCheckBox",
-        panel,
-        L["Show Off-Hand"],
-        L["Enables the player's off-hand swing bar."],
-        addon_data.player.ShowOffHandCheckBoxOnClick)
-    panel.show_offhand_checkbox:SetPoint("TOPLEFT", 10, -60)
-    -- Show Border Checkbox
-    panel.show_border_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowBorderCheckBox",
-        panel,
-        L["Show border"],
-        L["Enables the player bar's border."],
-        addon_data.player.ShowBorderCheckBoxOnClick)
-    panel.show_border_checkbox:SetPoint("TOPLEFT", 10, -80)
-    -- Show Classic Bars Checkbox
-    panel.classic_bars_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerClassicBarsCheckBox",
-        panel,
-        L["Classic bars"],
-        L["Enables the classic texture for the player's bars."],
-        addon_data.player.ClassicBarsCheckBoxOnClick)
-    panel.classic_bars_checkbox:SetPoint("TOPLEFT", 10, -100)
-    -- Fill/Empty Checkbox
-    panel.fill_empty_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerFillEmptyCheckBox",
-        panel,
-        L["Fill / Empty"],
-        L["Determines if the bar is full or empty when a swing is ready."],
-        addon_data.player.FillEmptyCheckBoxOnClick)
-    panel.fill_empty_checkbox:SetPoint("TOPLEFT", 10, -120)
-    -- Show Left Text Checkbox
-    panel.show_left_text_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowLeftTextCheckBox",
-        panel,
-        L["Show Left Text"],
-        L["Enables the player's left side text."],
-        addon_data.player.ShowLeftTextCheckBoxOnClick)
-    panel.show_left_text_checkbox:SetPoint("TOPLEFT", 10, -140)
-    -- Show Right Text Checkbox
-    panel.show_right_text_checkbox = addon_data.config.CheckBoxFactory(
-        "PlayerShowRightTextCheckBox",
-        panel,
-        L["Show Right Text"],
-        L["Enables the player's right side text."],
-        addon_data.player.ShowRightTextCheckBoxOnClick)
-    panel.show_right_text_checkbox:SetPoint("TOPLEFT", 10, -160)
-    
-    -- Width EditBox
-    panel.width_editbox = addon_data.config.EditBoxFactory(
-        "PlayerWidthEditBox",
-        panel,
-        L["Bar Width"],
-        75,
-        25,
-        addon_data.player.WidthEditBoxOnEnter)
-    panel.width_editbox:SetPoint("TOPLEFT", 240, -60, "BOTTOMRIGHT", 275, -85)
-    -- Height EditBox
-    panel.height_editbox = addon_data.config.EditBoxFactory(
-        "PlayerHeightEditBox",
-        panel,
-        L["Bar Height"],
-        75,
-        25,
-        addon_data.player.HeightEditBoxOnEnter)
-    panel.height_editbox:SetPoint("TOPLEFT", 320, -60, "BOTTOMRIGHT", 355, -85)
-	-- Font Size EditBox
-	panel.fontsize_editbox = addon_data.config.EditBoxFactory(
-        "FontSizeEditBox",
-        panel,
-        "Font Size",
-        75,
-        25,
-        addon_data.player.FontSizeEditBoxOnEnter)
-    panel.fontsize_editbox:SetPoint("TOPLEFT", 160, -60)
-    -- X Offset EditBox
-    panel.x_offset_editbox = addon_data.config.EditBoxFactory(
-        "PlayerXOffsetEditBox",
-        panel,
-        L["X Offset"],
-        75,
-        25,
-        addon_data.player.XOffsetEditBoxOnEnter)
-    panel.x_offset_editbox:SetPoint("TOPLEFT", 200, -110, "BOTTOMRIGHT", 275, -135)
-    -- Y Offset EditBox
-    panel.y_offset_editbox = addon_data.config.EditBoxFactory(
-        "PlayerYOffsetEditBox",
-        panel,
-        L["Y Offset"],
-        75,
-        25,
-        addon_data.player.YOffsetEditBoxOnEnter)
-    panel.y_offset_editbox:SetPoint("TOPLEFT", 280, -110, "BOTTOMRIGHT", 355, -135)
-    
-    -- Main-hand color picker
-    panel.main_color_picker = addon_data.config.color_picker_factory(
-        'PlayerMainColorPicker',
-        panel,
-        settings.main_r, settings.main_g, settings.main_b, settings.main_a,
-        L["Main-hand Bar Color"],
-        addon_data.player.MainColorPickerOnClick)
-    panel.main_color_picker:SetPoint('TOPLEFT', 205, -150)
-    -- Main-hand color text picker
-    panel.main_text_color_picker = addon_data.config.color_picker_factory(
-        'PlayerMainTextColorPicker',
-        panel,
-        settings.main_text_r, settings.main_text_g, settings.main_text_b, settings.main_text_a,
-        L["Main-hand Bar Text Color"],
-        addon_data.player.MainTextColorPickerOnClick)
-    panel.main_text_color_picker:SetPoint('TOPLEFT', 205, -170)
-    -- Off-hand color picker
-    panel.off_color_picker = addon_data.config.color_picker_factory(
-        'PlayerOffColorPicker',
-        panel,
-        settings.off_r, settings.off_g, settings.off_b, settings.off_a,
-        L["Off-hand Bar Color"],
-        addon_data.player.OffColorPickerOnClick)
-    panel.off_color_picker:SetPoint('TOPLEFT', 205, -200)
-    -- Off-hand color text picker
-    panel.off_text_color_picker = addon_data.config.color_picker_factory(
-        'PlayerOffTextColorPicker',
-        panel,
-        settings.off_text_r, settings.off_text_g, settings.off_text_b, settings.off_text_a,
-        L["Off-hand Bar Text Color"],
-        addon_data.player.OffTextColorPickerOnClick)
-    panel.off_text_color_picker:SetPoint('TOPLEFT', 205, -220)
-    
-    -- In Combat Alpha Slider
-    panel.in_combat_alpha_slider = addon_data.config.SliderFactory(
-        "PlayerInCombatAlphaSlider",
-        panel,
-        L["In Combat Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.player.CombatAlphaOnValChange)
-    panel.in_combat_alpha_slider:SetPoint("TOPLEFT", 405, -60)
-    -- Out Of Combat Alpha Slider
-    panel.ooc_alpha_slider = addon_data.config.SliderFactory(
-        "PlayerOOCAlphaSlider",
-        panel,
-        L["Out of Combat Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.player.OOCAlphaOnValChange)
-    panel.ooc_alpha_slider:SetPoint("TOPLEFT", 405, -110)
-    -- Backplane Alpha Slider
-    panel.backplane_alpha_slider = addon_data.config.SliderFactory(
-        "PlayerBackplaneAlphaSlider",
-        panel,
-        L["Backplane Alpha"],
-        0,
-        1,
-        0.05,
-        addon_data.player.BackplaneAlphaOnValChange)
-    panel.backplane_alpha_slider:SetPoint("TOPLEFT", 405, -160)
-    
-    -- Return the final panel
-    addon_data.player.UpdateConfigPanelValues()
-    return panel
-end
-
