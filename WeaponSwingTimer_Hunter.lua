@@ -72,13 +72,14 @@ addon_data.hunter.default_settings = {
     one_bar = false,
     cooldown_r = 0.15, cooldown_g = 0.6, cooldown_b = 0.15, cooldown_a = 1.0,
 }
--- Shot bar: Auto Shot / wand classes with a ranged weapon equipped
+-- Shot bar: needs a ranged weapon or wand; by default only for Auto Shot / wand classes
 local ranged_classes = { HUNTER = true, MAGE = true, PRIEST = true, WARLOCK = true }
 addon_data.hunter.IsRelevant = function()
     if addon_data.core.preview then return true end
+    if not GetInventoryItemID("player", INVSLOT_RANGED or 18) then return false end
     if character_core_settings and character_core_settings.only_class_bars == false then return true end
     local _, class = UnitClass("player")
-    return ranged_classes[class] and GetInventoryItemID("player", INVSLOT_RANGED or 18) ~= nil
+    return ranged_classes[class] and true or false
 end
 
 --- Initializing variables for calculations and function calls

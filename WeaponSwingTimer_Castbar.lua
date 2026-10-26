@@ -219,9 +219,10 @@ end
 addon_data.castbar.IsRelevant = function()
     if addon_data.core.preview then return true end
     if character_castbar_settings and character_castbar_settings.all_spells then return true end
+    if not GetInventoryItemID("player", INVSLOT_RANGED or 18) then return false end
     if character_core_settings and character_core_settings.only_class_bars == false then return true end
     local _, class = UnitClass("player")
-    return class == "HUNTER" and GetInventoryItemID("player", INVSLOT_RANGED or 18) ~= nil
+    return class == "HUNTER"
 end
 
 addon_data.castbar.OnUpdate = function(elapsed)

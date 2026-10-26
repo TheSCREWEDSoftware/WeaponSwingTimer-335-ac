@@ -570,7 +570,7 @@ function options.Build()
             preview_possible_only = Toggle("core", "preview_possible_only", T("Test bars: only show bars this character can use"),
                 CC(T("Leaves out the shot bar for classes without Auto Shot or a wand, the Hunter-only spell cast bar for other classes, and your off-hand row for classes that can't dual wield.")), 3.6, { width = "full" }),
             only_class_bars = Toggle("core", "only_class_bars", T("Hide ranged bars this class can't use"),
-                CC(T("Shot bar: only Hunters, and Mages, Priests and Warlocks with a wand. Spell cast bar: only Hunters. Untick to allow them on any class.")), 4.5, { width = "full" }),
+                CC(T("Ranged bars always need a ranged weapon or wand equipped. Ticked: the shot bar is only for Hunters, and Mages, Priests and Warlocks (wand). Unticked: any class with a ranged weapon.")), 4.5, { width = "full" }),
             minimap = {
                 type = "toggle", name = T("Show minimap button"), order = 4.7,
                 desc = T("Left-click opens the options, right-click shows/hides all bars, drag to move."),
